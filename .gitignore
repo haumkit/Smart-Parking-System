@@ -1,0 +1,50 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Node modules
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Uploads
+uploads/
+*.tmp
+
+# Logs
+logs/
+*.log
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Model files
+ai_server/models/*.h5
+ai_server/models/*.json
+ai_server/models/*.pkl
+
+# Temporary files
+*.tmp
+*.temp
+

@@ -1,0 +1,112 @@
+{
+	"info": {
+		"_postman_id": "smart-parking-ai-detection",
+		"name": "Smart Parking - AI Detection API",
+		"description": "Collection for testing AI Detection Service (License Plate & Parking Slot Detection)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/health",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"health"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "API Info",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						""
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Plate Detection",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "image",
+							"type": "file",
+							"src": []
+						}
+					]
+				},
+				"url": {
+					"raw": "{{base_url}}/api/detect/plate",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"detect",
+						"plate"
+					]
+				},
+				"description": "Detect license plate from uploaded image\n\n**Expected Response:**\n```json\n{\n  \"success\": true,\n  \"data\": {\n    \"plateNumber\": \"29A-123.45\",\n    \"confidence\": 0.92,\n    \"boundingBox\": null\n  }\n}\n```"
+			},
+			"response": []
+		},
+		{
+			"name": "Slot Detection",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "image",
+							"type": "file",
+							"src": []
+						}
+					]
+				},
+				"url": {
+					"raw": "{{base_url}}/api/detect/slots",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"detect",
+						"slots"
+					]
+				},
+				"description": "Detect parking slot occupancy from uploaded image\n\n**Expected Response:**\n```json\n{\n  \"success\": true,\n  \"data\": {\n    \"slots\": [\n      {\"code\": \"A1\", \"status\": \"available\", \"confidence\": 0.95},\n      {\"code\": \"A2\", \"status\": \"occupied\", \"confidence\": 0.98}\n    ]\n  }\n}\n```"
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:5001",
+			"type": "string"
+		}
+	]
+}
+
