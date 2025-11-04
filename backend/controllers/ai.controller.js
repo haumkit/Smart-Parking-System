@@ -3,12 +3,8 @@ const FormData = require("form-data");
 const fs = require("fs");
 const path = require("path");
 
-// AI Service URL from environment variable
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:5001";
 
-/**
- * Call Python Flask AI service to detect license plate
- */
 async function callAIService(endpoint, filepath) {
   try {
     const formData = new FormData();
@@ -16,14 +12,13 @@ async function callAIService(endpoint, filepath) {
 
     const response = await axios.post(`${AI_SERVICE_URL}/api/detect/${endpoint}`, formData, {
       headers: formData.getHeaders(),
-      timeout: 30000, // 30 seconds timeout
+      timeout: 30000,
     });
 
     return response.data;
   } catch (error) {
     console.error(`AI Service error (${endpoint}):`, error.message);
     
-    // If AI service is unavailable, return error
     if (error.code === "ECONNREFUSED" || error.response?.status === 503) {
       throw new Error("AI service is currently unavailable");
     }
@@ -38,10 +33,8 @@ exports.detectPlate = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "No image uploaded" });
     }
 
-    // Call Python AI service
     const result = await callAIService("plate", file.path);
 
-    // Transform response to match backend API format
     if (result.success && result.data) {
       res.json({
         plateNumber: result.data.plateNumber,
@@ -57,7 +50,6 @@ exports.detectPlate = async (req, res, next) => {
   } catch (err) {
     console.error("Plate detection error:", err);
     
-    // Fallback to stub data if AI service is down (optional)
     if (process.env.AI_FALLBACK === "true") {
       console.warn("Using fallback stub data");
       res.json({ plateNumber: "29A-123.45", confidence: 0.92 });
@@ -74,10 +66,8 @@ exports.detectSlots = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "No image uploaded" });
     }
 
-    // Call Python AI service
     const result = await callAIService("slots", file.path);
 
-    // Transform response to match backend API format
     if (result.success && result.data) {
       res.json({
         slots: result.data.slots,
@@ -91,7 +81,6 @@ exports.detectSlots = async (req, res, next) => {
   } catch (err) {
     console.error("Slot detection error:", err);
     
-    // Fallback to stub data if AI service is down (optional)
     if (process.env.AI_FALLBACK === "true") {
       console.warn("Using fallback stub data");
       res.json({

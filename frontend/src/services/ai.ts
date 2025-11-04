@@ -17,9 +17,6 @@ export interface SlotDetectionResult {
   confidence: number
 }
 
-/**
- * Detect license plate from uploaded image
- */
 export async function detectPlate(imageFile: File): Promise<PlateDetectionResult> {
   const formData = new FormData()
   formData.append('image', imageFile)
@@ -38,9 +35,6 @@ export async function detectPlate(imageFile: File): Promise<PlateDetectionResult
   return res.json()
 }
 
-/**
- * Detect parking slots from uploaded image
- */
 export async function detectSlots(imageFile: File): Promise<SlotDetectionResult[]> {
   const formData = new FormData()
   formData.append('image', imageFile)

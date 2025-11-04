@@ -72,24 +72,7 @@ def index():
 
 @app.route("/api/detect/plate", methods=["POST"])
 def detect_plate():
-    """
-    Detect license plate from uploaded image
     
-    Returns:
-        JSON: {
-            "success": bool,
-            "data": {
-                "plateNumber": str,
-                "confidence": float,
-                "boundingBox": {
-                    "x": int,
-                    "y": int,
-                    "width": int,
-                    "height": int
-                }
-            }
-        }
-    """
     try:
         if "image" not in request.files:
             return jsonify({

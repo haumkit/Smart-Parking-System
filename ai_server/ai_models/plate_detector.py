@@ -320,40 +320,12 @@ class LicensePlateDetector:
         print("License Plate Detector initialized successfully!")
     
     def detect_from_image_path(self, image_path, lp_threshold=0.5):
-        """
-        Detect license plate from image file path
-        
-        Args:
-            image_path: Path to image file
-            lp_threshold: Detection confidence threshold
-            
-        Returns:
-            dict: {
-                'plateNumber': str,
-                'confidence': float,
-                'boundingBox': dict or None
-            }
-        """
         image = cv2.imread(image_path)
         return self.detect_from_array(image, lp_threshold)
     
     def detect_from_array(self, opencv_image, lp_threshold=0.5):
-        """
-        Detect license plate from OpenCV image array
-        
-        Args:
-            opencv_image: OpenCV image (BGR format)
-            lp_threshold: Detection confidence threshold
-            
-        Returns:
-            dict: {
-                'plateNumber': str,
-                'confidence': float,
-                'boundingBox': dict or None
-            }
-        """
+
         try:
-            # Detect license plate
             Dmax = 608
             Dmin = 288
             ratio = float(max(opencv_image.shape[:2])) / min(opencv_image.shape[:2])
