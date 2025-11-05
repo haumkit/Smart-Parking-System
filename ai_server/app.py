@@ -1,7 +1,7 @@
 """
 Flask API for AI Detection Services
 """
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory, url_for
 from flask_cors import CORS
 import os
 import werkzeug
@@ -19,9 +19,12 @@ MAX_FILE_SIZE = 10 * 1024 * 1024
 
 WPOD_MODEL_PATH = os.getenv("WPOD_MODEL_PATH", "models/wpod-net")
 OCR_MODEL_PATH = os.getenv("OCR_MODEL_PATH", "models/model_car_full_num.h5")
-SLOT_MODEL_PATH = os.getenv("SLOT_MODEL_PATH", None)
+SLOT_MODEL_PATH = os.getenv("SLOT_MODEL_PATH", os.getenv("SLOT_YOLO_MODEL_PATH", "models/best.pt"))
+SLOT_POLYGON_CSV = os.getenv("SLOT_POLYGON_CSV", "slots_polygon.csv")
+PROCESSED_DIR = os.getenv("SLOT_PROCESSED_DIR", os.path.join(UPLOAD_FOLDER, "processed"))
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(PROCESSED_DIR, exist_ok=True)
 
 plate_detector = None
 slot_detector = None
@@ -33,7 +36,11 @@ def load_ai_models():
         if os.path.exists("models") and os.path.exists(WPOD_MODEL_PATH + ".json"):
             print("Loading AI models...")
             plate_detector = LicensePlateDetector(WPOD_MODEL_PATH, OCR_MODEL_PATH)
-            slot_detector = ParkingSlotDetector(SLOT_MODEL_PATH)
+            slot_detector = ParkingSlotDetector(
+                model_path=SLOT_MODEL_PATH,
+                polygon_csv_path=SLOT_POLYGON_CSV,
+                processed_dir=PROCESSED_DIR,
+            )
             print("✅ AI models loaded successfully!")
         else:
             print("⚠️  Model files not found. Running in stub mode.")
@@ -68,6 +75,12 @@ def index():
             "slotDetection": "/api/detect/slots"
         }
     })
+
+
+@app.route('/uploads/<path:filename>', methods=['GET'])
+def serve_uploads(filename):
+    # Serve files from the uploads directory (including processed overlays)
+    return send_from_directory(UPLOAD_FOLDER, filename)
 
 
 @app.route("/api/detect/plate", methods=["POST"])
@@ -170,23 +183,6 @@ def detect_plate():
 
 @app.route("/api/detect/slots", methods=["POST"])
 def detect_slots():
-    """
-    Detect parking slot occupancy from uploaded image
-    
-    Returns:
-        JSON: {
-            "success": bool,
-            "data": {
-                "slots": [
-                    {
-                        "code": str,
-                        "status": str,
-                        "confidence": float
-                    }
-                ]
-            }
-        }
-    """
     try:
         if "image" not in request.files:
             return jsonify({
@@ -225,11 +221,33 @@ def detect_slots():
         if slot_detector is not None:
             try:
                 detection_result = slot_detector.detect_from_image_path(filepath)
-                
+
+                slots = detection_result.get("slots", []) if isinstance(detection_result, dict) else detection_result
+                processed_path = None
+                total_slots = None
+                free_slots = None
+                occupied_slots = None
+                if isinstance(detection_result, dict):
+                    processed_path = detection_result.get("processedImagePath")
+                    total_slots = detection_result.get("totalSlots")
+                    free_slots = detection_result.get("freeSlots")
+                    occupied_slots = detection_result.get("occupiedSlots")
+
+                processed_url = None
+                if processed_path and os.path.exists(processed_path):
+                    # Build a URL to serve the processed file
+                    # Ensure it's relative to uploads directory
+                    proc_rel = os.path.relpath(processed_path, UPLOAD_FOLDER).replace("\\", "/")
+                    processed_url = f"/uploads/{proc_rel}"
+
                 result = {
                     "success": True,
                     "data": {
-                        "slots": detection_result
+                        "slots": slots,
+                        "processedImageUrl": processed_url,
+                        "totalSlots": total_slots,
+                        "freeSlots": free_slots,
+                        "occupiedSlots": occupied_slots,
                     }
                 }
                     
@@ -252,7 +270,11 @@ def detect_slots():
                     {"code": "A2", "status": "occupied", "confidence": 0.98},
                     {"code": "A3", "status": "available", "confidence": 0.92},
                     {"code": "B1", "status": "occupied", "confidence": 0.96},
-                ]
+                ],
+                "processedImageUrl": None,
+                "totalSlots": 4,
+                "freeSlots": 2,
+                "occupiedSlots": 2,
             }
         }
 
