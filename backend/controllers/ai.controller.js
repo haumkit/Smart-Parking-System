@@ -69,8 +69,16 @@ exports.detectSlots = async (req, res, next) => {
     const result = await callAIService("slots", file.path);
 
     if (result.success && result.data) {
+      const processedImageUrl = result.data.processedImageUrl
+        ? `${AI_SERVICE_URL}${result.data.processedImageUrl}`
+        : null;
+
       res.json({
         slots: result.data.slots,
+        processedImageUrl,
+        totalSlots: result.data.totalSlots ?? null,
+        freeSlots: result.data.freeSlots ?? null,
+        occupiedSlots: result.data.occupiedSlots ?? null,
       });
     } else {
       res.status(500).json({

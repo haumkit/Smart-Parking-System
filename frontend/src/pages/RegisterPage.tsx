@@ -20,7 +20,7 @@ export default function RegisterPage() {
     try {
       const data = await register(name, email, password, role)
       
-      // Auto login after registration
+
       localStorage.setItem('token', data.token)
       localStorage.setItem('role', data.user.role)
       localStorage.setItem('name', data.user.name)
@@ -45,7 +45,7 @@ export default function RegisterPage() {
         {success && <p className="text-sm text-green-600">✅ Registration successful! Redirecting...</p>}
         
         <div className="space-y-1">
-          <label className="text-sm">Name</label>
+          <label className="font-semibold text-sm block text-left">Name</label>
           <input 
             value={name} 
             onChange={e => setName(e.target.value)} 
@@ -56,7 +56,7 @@ export default function RegisterPage() {
         </div>
         
         <div className="space-y-1">
-          <label className="text-sm">Email</label>
+          <label className="font-semibold text-sm block text-left">Email</label>
           <input 
             type="email"
             value={email} 
@@ -68,7 +68,7 @@ export default function RegisterPage() {
         </div>
         
         <div className="space-y-1">
-          <label className="text-sm">Password</label>
+          <label className="font-semibold text-sm block text-left">Password</label>
           <input 
             type="password" 
             value={password} 
@@ -79,7 +79,7 @@ export default function RegisterPage() {
         </div>
         
         <div className="space-y-1">
-          <label className="text-sm">Role</label>
+          <label className="font-semibold text-sm block text-left">Role</label>
           <select
             value={role}
             onChange={e => setRole(e.target.value as 'user' | 'admin')}

@@ -17,6 +17,14 @@ export interface SlotDetectionResult {
   confidence: number
 }
 
+export interface SlotDetectionResponse {
+  slots: SlotDetectionResult[]
+  processedImageUrl?: string | null
+  totalSlots?: number | null
+  freeSlots?: number | null
+  occupiedSlots?: number | null
+}
+
 export async function detectPlate(imageFile: File): Promise<PlateDetectionResult> {
   const formData = new FormData()
   formData.append('image', imageFile)
@@ -35,7 +43,7 @@ export async function detectPlate(imageFile: File): Promise<PlateDetectionResult
   return res.json()
 }
 
-export async function detectSlots(imageFile: File): Promise<SlotDetectionResult[]> {
+export async function detectSlots(imageFile: File): Promise<SlotDetectionResponse> {
   const formData = new FormData()
   formData.append('image', imageFile)
 
@@ -51,6 +59,6 @@ export async function detectSlots(imageFile: File): Promise<SlotDetectionResult[
   }
 
   const result = await res.json()
-  return result.slots
+  return result as SlotDetectionResponse
 }
 

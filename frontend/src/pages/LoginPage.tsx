@@ -16,13 +16,11 @@ export default function LoginPage() {
     try {
       const data = await login(email, password)
       
-      // Store token and user info
       localStorage.setItem('token', data.token)
       localStorage.setItem('role', data.user.role)
       localStorage.setItem('name', data.user.name)
       localStorage.setItem('id', data.user.id)
       
-      // Redirect based on role: admin → dashboard, user → parking
       navigate(data.user.role === 'admin' ? '/dashboard' : '/parking')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
@@ -34,14 +32,14 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen grid place-items-center bg-gray-50">
       <form onSubmit={onSubmit} className="w-full max-w-sm bg-white rounded-lg shadow p-6 space-y-4">
-        <h1 className="text-xl font-semibold">Sign in</h1>
+      <span className="font-bold text-2xl text-blue-600">Smart Parking System</span>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="space-y-1">
-          <label className="text-sm">Email</label>
-          <input value={email} onChange={e => setEmail(e.target.value)} className="w-full border rounded px-3 py-2" placeholder="you@example.com" />
+          <label className="font-semibold text-sm block text-left">Email</label>
+          <input value={email} onChange={e => setEmail(e.target.value)} className="w-full border rounded px-3 py-2" placeholder="" />
         </div>
         <div className="space-y-1">
-          <label className="text-sm">Password</label>
+          <label className="font-semibold text-sm block text-left">Password</label>
           <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full border rounded px-3 py-2" />
         </div>
         <button disabled={loading} className="w-full py-2 rounded bg-gray-900 text-white">{loading ? 'Signing in...' : 'Sign in'}</button>

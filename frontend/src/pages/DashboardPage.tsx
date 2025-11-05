@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { detectPlate, detectSlots, type PlateDetectionResult, type SlotDetectionResult } from '../services/ai'
+import { detectPlate, detectSlots, type PlateDetectionResult, type SlotDetectionResult, type SlotDetectionResponse } from '../services/ai'
 
 export default function DashboardPage() {
 
@@ -21,7 +21,7 @@ export default function DashboardPage() {
 
   const [parkingImage, setParkingImage] = useState<File | null>(null)
   const [parkingPreview, setParkingPreview] = useState<string | null>(null)
-  const [parkingProcessed, setParkingProcessed] = useState<string | null>(null) // Ảnh đã xử lý AI
+  const [parkingProcessed, setParkingProcessed] = useState<string | null>(null)
   const [slotResults, setSlotResults] = useState<SlotDetectionResult[] | null>(null)
   const [availableSlotsCount, setAvailableSlotsCount] = useState<number>(0)
   const [parkingLoading, setParkingLoading] = useState(false)
@@ -102,29 +102,27 @@ export default function DashboardPage() {
     setParkingLoading(true)
 
     try {
-      // Gọi API nhận diện bãi đỗ
-      const results = await detectSlots(parkingImage)
-      setSlotResults(results)
+      const resp: SlotDetectionResponse = await detectSlots(parkingImage)
+      setSlotResults(resp.slots)
 
-      // Đếm số ô trống
-      const availableCount = results.filter(slot => slot.status === 'available').length
-      setAvailableSlotsCount(availableCount)
+      if (typeof resp.freeSlots === 'number') {
+        setAvailableSlotsCount(resp.freeSlots)
+      } else {
+        const availableCount = resp.slots.filter(slot => slot.status === 'available').length
+        setAvailableSlotsCount(availableCount)
+      }
 
-      // TODO: Tạo ảnh đã xử lý với overlay (sẽ làm sau khi có API từ backend)
-      // Hiện tại tạm thời dùng ảnh gốc
-      setParkingProcessed(parkingPreview)
+      if (resp.processedImageUrl) {
+        setParkingProcessed(resp.processedImageUrl)
+      } else {
+        setParkingProcessed(parkingPreview)
+      }
     } catch (err) {
       console.error('Parking detection error:', err)
     } finally {
       setParkingLoading(false)
     }
   }
-
-  // ========== LOAD ẢNH RANDOM TỪ BACKEND (TODO) ==========
-  // TODO: Tạo API endpoint trong backend để lấy ảnh random từ thư mục
-  // useEffect(() => {
-  //   loadRandomParkingImage()
-  // }, [])
 
   return (
     <div className="space-y-6">
@@ -155,7 +153,7 @@ export default function DashboardPage() {
               <img
                 src={entryPreview}
                 alt="Ảnh xe vào"
-                className="w-full h-48 object-cover rounded border"
+                className="w-full h-84 object-cover rounded border"
               />
             </div>
           )}
@@ -167,7 +165,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Error Display */}
           {entryError && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded">
               <p className="text-red-800 font-semibold text-sm">Lỗi:</p>
@@ -175,7 +172,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Kết quả nhận diện biển số */}
           {entryPlateResult && (
             <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded">
               <p className="text-sm font-semibold text-green-800">Biển số:</p>
@@ -186,7 +182,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Nút xử lý */}
           <button
             onClick={handleEntryProcess}
             disabled={!entryImage || entryLoading}
@@ -196,7 +191,6 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* XE RA */}
         <div className="bg-white border rounded-lg shadow p-4">
           <h2 className="text-lg font-semibold mb-4 text-red-600">Xe Ra</h2>
           
@@ -216,18 +210,16 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          {/* Preview ảnh */}
           {exitPreview && (
             <div className="mb-4">
               <img
                 src={exitPreview}
                 alt="Ảnh xe ra"
-                className="w-full h-48 object-cover rounded border"
+                className="w-full h-84 object-cover rounded border"
               />
             </div>
           )}
 
-          {/* Hiển thị thời gian */}
           {exitTime && (
             <div className="mb-4 p-2 bg-gray-50 rounded text-sm">
               <span className="font-semibold">Thời gian ra: </span>
@@ -275,7 +267,7 @@ export default function DashboardPage() {
             onChange={handleParkingImageChange}
             className="hidden"
           />
-          <div className="flex gap-2">
+          <div className="gap-2">
             <button
               onClick={() => parkingFileInputRef.current?.click()}
               className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
@@ -301,26 +293,25 @@ export default function DashboardPage() {
               <img
                 src={parkingPreview}
                 alt="Bãi đỗ gốc"
-                className="w-full h-64 object-cover rounded border"
+                className="w-full h-84 object-cover rounded border"
               />
             ) : (
-              <div className="w-full h-64 bg-gray-100 border rounded flex items-center justify-center text-gray-400">
+              <div className="w-full h-84 bg-gray-100 border rounded flex items-center justify-center text-gray-400">
                 Chưa có ảnh
               </div>
             )}
           </div>
 
-          {/* Ảnh đã xử lý AI */}
           <div>
-            <h3 className="text-sm font-semibold mb-2 text-gray-700">Ảnh Đã Xử Lý AI</h3>
+            <h3 className="text-sm font-semibold mb-2 text-gray-700">Ảnh Đã Xử Lý</h3>
             {parkingProcessed ? (
               <img
                 src={parkingProcessed}
                 alt="Bãi đỗ đã xử lý"
-                className="w-full h-64 object-cover rounded border border-blue-300"
+                className="w-full h-84 object-cover rounded border border-blue-300"
               />
             ) : (
-              <div className="w-full h-64 bg-gray-100 border rounded flex items-center justify-center text-gray-400">
+              <div className="w-full h-84 bg-gray-100 border rounded flex items-center justify-center text-gray-400">
                 Chưa xử lý
               </div>
             )}
@@ -336,7 +327,7 @@ export default function DashboardPage() {
             </span>
           </div>
           {slotResults && (
-            <p className="text-xs text-gray-600 mt-1">
+            <p className="font-semibold text-s text-gray-600 mt-1">
               Tổng số ô: {slotResults.length} | Đã đỗ: {slotResults.length - availableSlotsCount}
             </p>
           )}
