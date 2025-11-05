@@ -6,44 +6,35 @@ Hệ thống quản lý bãi đỗ xe thông minh với AI nhận dạng biển 
 
 ```
 Smart-Parking-System/
-├── frontend/          # React + TypeScript UI
-├── backend/           # Node.js + Express API
-└── ai_server/         # Python Flask AI Service
+├── backend/                    # Node.js + Express API
+├── ai_server/                  # Python Flask AI Service
+└── frontend/                   # React + TypeScript UI + Tailwind CSS
+```
+
 ```
 
 ### System Flow
 
 ```
+
 Client (Browser)
-    ↓ HTTP
+↓ HTTP
 Frontend (React - Port 5173)
-    ↓ HTTP + JWT Auth
+↓ HTTP + JWT Auth
 Backend (Node.js - Port 5000)
-    ↓ HTTP
+↓ HTTP
 AI Server (Flask - Port 5001)
-    ↓ AI Models
+↓ AI Models
 MongoDB Atlas (Cloud)
-```
 
-## 🚀 Quick Start
-
-**Xem chi tiết**: `QUICKSTART.md`
-
-### TL;DR
-
-1. **Setup MongoDB Atlas** (FREE tier):
-
-   - https://www.mongodb.com/cloud/atlas/register
-   - Create M0 cluster
-   - Get connection string
-
+````
 2. **Configure Backend**:
 
    ```bash
    cd backend
    npm install
    # Tạo .env với MongoDB connection string
-   ```
+````
 
 3. **Configure AI Server**:
 
@@ -62,21 +53,6 @@ MongoDB Atlas (Cloud)
    - Terminal 3: Frontend (`npm run dev`)
 
 5. **Test**: Mở http://localhost:5173 → Login → AI Test
-
-## 📚 Documentation
-
-| Document                  | Description                  |
-| ------------------------- | ---------------------------- |
-| `QUICKSTART.md`           | ⭐ Setup guide nhanh nhất    |
-| `MONGODB_ATLAS_SETUP.md`  | Chi tiết setup MongoDB Atlas |
-| `E2E_TEST_GUIDE.md`       | Test end-to-end              |
-| `POSTMAN_GUIDE.md`        | Test với Postman             |
-| `TEST_CHECKLIST.md`       | Testing checklist            |
-| `SETUP.md`                | Setup chi tiết               |
-| `ai_server/README.md`     | AI Server docs               |
-| `ai_server/QUICKSTART.md` | AI Server quick start        |
-
-## 🧠 Features
 
 ### AI Detection
 
@@ -171,18 +147,6 @@ WPOD_MODEL_PATH=models/wpod-net
 OCR_MODEL_PATH=models/NhanDienKyTu.h5
 ```
 
-## 🧪 Testing
-
-### Test with Postman
-
-1. Import: `ai_server/AI_Detection_API.postman_collection.json`
-2. See: `POSTMAN_GUIDE.md`
-
-### End-to-End Testing
-
-1. See: `E2E_TEST_GUIDE.md`
-2. Checklist: `TEST_CHECKLIST.md`
-
 ## 📊 API Endpoints
 
 ### Backend (Port 5000)
@@ -211,38 +175,3 @@ python ai_server/app.py      # Terminal 1
 npm start                     # Terminal 2
 npm run dev                   # Terminal 3
 ```
-
-### Production
-
-- Setup Docker containers (see individual READMEs)
-- Configure nginx reverse proxy
-- Enable HTTPS
-- Setup monitoring & logging
-
-## 🤝 Contributing
-
-1. Fork repo
-2. Create feature branch
-3. Commit changes
-4. Push to branch
-5. Create Pull Request
-
-## 📝 License
-
-ISC
-
-## 🙏 Acknowledgments
-
-- WPOD-NET for license plate detection
-- TensorFlow for ML framework
-- OpenCV for image processing
-
-## 📞 Support
-
-- 📖 Documentation: See `/docs` folder
-- 🐛 Issues: GitHub Issues
-- 💬 Questions: Check existing docs
-
----
-
-**Made with ❤️ for Smart Parking Solutions**
