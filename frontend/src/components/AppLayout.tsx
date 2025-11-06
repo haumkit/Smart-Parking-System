@@ -15,7 +15,7 @@ export default function AppLayout() {
       <header className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4">
           <span className="font-bold text-4xl text-blue-600">Smart Parking System</span>
-          <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="max-w-7xl mx-auto px-4 py-5 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <nav className="flex items-center gap-6 text-sm">
                 {role === 'admin' && (

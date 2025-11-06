@@ -68,7 +68,7 @@ def health_check():
 @app.route("/", methods=["GET"])
 def index():
     return jsonify({
-        "message": "Smart Parking AI Detection Service 🧠",
+        "message": "Smart Parking AI Detection Service",
         "version": "1.0.0",
         "endpoints": {
             "plateDetection": "/api/detect/plate",

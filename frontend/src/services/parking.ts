@@ -1,7 +1,80 @@
-import { apiGet, apiPost } from './api'
+import { apiGet, apiPost, API_BASE, getAuthHeaders } from './api'
+
+export interface WalkInEntryResponse {
+  success: boolean
+  plateNumber: string
+  vehicleId: string
+  recordId: string
+  entryTime: string
+  entryTimeVN?: string
+  confidence?: number
+}
+
+export interface WalkInExitResponse {
+  success: boolean
+  plateNumber: string
+  recordId: string
+  entryTime: string
+  exitTime: string
+  durationHours: number
+  durationMinutes: number
+  fee: number
+}
+
+export async function walkInEntry(imageFile: File): Promise<WalkInEntryResponse> {
+  const formData = new FormData()
+  formData.append('image', imageFile)
+
+  const authHeaders = getAuthHeaders()
+  const res = await fetch(`${API_BASE}/parking/walkin/entry`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: formData,
+  })
+
+  if (!res.ok) {
+    throw new Error('Xe đã trong bãi')
+  }
+
+  return res.json()
+}
+
+export async function walkInExit(imageFile: File): Promise<WalkInExitResponse> {
+  const formData = new FormData()
+  formData.append('image', imageFile)
+
+  const authHeaders = getAuthHeaders()
+  const res = await fetch(`${API_BASE}/parking/walkin/exit`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: formData,
+  })
+
+  if (!res.ok) {
+    throw new Error('Xe chưa vào bãi')
+  }
+
+  return res.json()
+}
+
+export interface AvailableSlot {
+  slotNum: number
+  code: string
+  status: 'available' | 'occupied'
+}
+
+export interface AvailableSlotsResponse {
+  success: boolean
+  count: number
+  slots: AvailableSlot[]
+}
 
 export async function listSlots() {
   return apiGet('/parking/slots')
+}
+
+export async function listAvailableSlots(): Promise<AvailableSlotsResponse> {
+  return apiGet('/parking/slots/available')
 }
 
 export async function suggestSlot() {

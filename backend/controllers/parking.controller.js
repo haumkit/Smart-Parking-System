@@ -1,9 +1,9 @@
 const ParkingSlot = require("../models/ParkingSlot");
 const ParkingRecord = require("../models/ParkingRecord");
+const parkingService = require("../services/parking.service");
 
 exports.listSlots = async (req, res, next) => {
   try {
-    // Admin sees all slots, user sees only slots where their vehicle is parked
     if (req.user.role === 'admin') {
       const slots = await ParkingSlot.find()
         .populate('vehicleId')
@@ -11,7 +11,6 @@ exports.listSlots = async (req, res, next) => {
       return res.json(slots);
     }
     
-    // User: find slots where their vehicles are parked
     const Vehicle = require("../models/Vehicle");
     const userVehicles = await Vehicle.find({ ownerId: req.user.id }).select("_id");
     const vehicleIds = userVehicles.map(v => v._id);
@@ -67,11 +66,29 @@ exports.suggestSlot = async (req, res, next) => {
   }
 };
 
+exports.listAvailableSlots = async (req, res, next) => {
+  try {
+    const slots = await ParkingSlot.find({ status: "available" })
+      .select("slotNum status")
+      .sort({ slotNum: 1 });
+    res.json({
+      success: true,
+      count: slots.length,
+      slots: slots.map(s => ({
+        slotNum: s.slotNum,
+        code: s.code || s.slotNum.toString(), // Fallback nếu code null
+        status: s.status
+      }))
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.checkIn = async (req, res, next) => {
   try {
     const { vehicleId, slotId } = req.body;
     
-    // Verify vehicle belongs to user (if not admin)
     if (req.user.role !== 'admin') {
       const Vehicle = require("../models/Vehicle");
       const vehicle = await Vehicle.findById(vehicleId);
@@ -111,7 +128,6 @@ exports.checkOut = async (req, res, next) => {
     const record = await ParkingRecord.findById(recordId);
     if (!record) return res.status(404).json({ message: "Record not found" });
     
-    // Verify record belongs to user (if not admin)
     if (req.user.role !== 'admin' && record.userId.toString() !== req.user.id) {
       return res.status(403).json({ message: "Record does not belong to you" });
     }
@@ -123,6 +139,73 @@ exports.checkOut = async (req, res, next) => {
     if (record.slotId) await ParkingSlot.findByIdAndUpdate(record.slotId, { status: "available", vehicleId: null });
     res.json(record);
   } catch (err) {
+    next(err);
+  }
+};
+
+exports.walkInEntry = async (req, res, next) => {
+  try {
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ success: false, message: "No image uploaded" });
+    }
+
+    const result = await parkingService.walkInEntry(file.path);
+
+    res.json({
+      success: true,
+      ...result,
+    });
+  } catch (err) {
+    console.error("Walk-in entry error:", err);
+    
+    // Handle specific error types
+    if (err.message.includes("Plate not detected")) {
+      return res.status(422).json({ success: false, message: err.message });
+    }
+    if (err.message.includes("already in parking")) {
+      return res.status(409).json({ success: false, message: err.message }); // 409 Conflict
+    }
+    if (err.message.includes("Invalid")) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    
+    next(err);
+  }
+};
+
+/**
+ * Walk-in Exit: Controller receives image only, calls service to detect plate and close ParkingRecord
+ */
+exports.walkInExit = async (req, res, next) => {
+  try {
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ success: false, message: "No image uploaded" });
+    }
+
+    const result = await parkingService.walkInExit(file.path);
+
+    res.json({
+      success: true,
+      ...result,
+    });
+  } catch (err) {
+    console.error("Walk-in exit error:", err);
+    
+    // Handle specific error types
+    if (err.message.includes("Plate not detected")) {
+      return res.status(422).json({ success: false, message: err.message });
+    }
+    if (err.message.includes("Vehicle not found") || err.message.includes("No open parking record")) {
+      return res.status(404).json({ success: false, message: err.message });
+    }
+    if (err.message.includes("Invalid")) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    
     next(err);
   }
 };

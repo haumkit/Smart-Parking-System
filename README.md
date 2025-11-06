@@ -1,8 +1,8 @@
-# Smart Parking System 🚗
+# Smart Parking System
 
 Hệ thống quản lý bãi đỗ xe thông minh với AI nhận dạng biển số và trạng thái chỗ đỗ.
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 Smart-Parking-System/
@@ -84,7 +84,7 @@ MongoDB Atlas (Cloud)
 
 **AI Server:**
 
-- Python 3.8+
+- Python 3.12+
 - Flask + Flask-CORS
 - TensorFlow/Keras
 - OpenCV

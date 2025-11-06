@@ -16,7 +16,7 @@ app.use(express.json());
 app.use(morgan("dev"));
 
 app.get("/", (req, res) => {
-  res.send("Smart Parking System API is running 🚀");
+  res.send("Smart Parking System API is running...");
 });
 
 app.use("/api/v1", routes);

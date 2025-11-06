@@ -1,30 +1,4 @@
-const axios = require("axios");
-const FormData = require("form-data");
-const fs = require("fs");
-const path = require("path");
-
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:5001";
-
-async function callAIService(endpoint, filepath) {
-  try {
-    const formData = new FormData();
-    formData.append("image", fs.createReadStream(filepath));
-
-    const response = await axios.post(`${AI_SERVICE_URL}/api/detect/${endpoint}`, formData, {
-      headers: formData.getHeaders(),
-      timeout: 30000,
-    });
-
-    return response.data;
-  } catch (error) {
-    console.error(`AI Service error (${endpoint}):`, error.message);
-    
-    if (error.code === "ECONNREFUSED" || error.response?.status === 503) {
-      throw new Error("AI service is currently unavailable");
-    }
-    throw error;
-  }
-}
+const { AI_SERVICE_URL, callAIService } = require("../services/ai.service");
 
 exports.detectPlate = async (req, res, next) => {
   try {
@@ -52,7 +26,7 @@ exports.detectPlate = async (req, res, next) => {
     
     if (process.env.AI_FALLBACK === "true") {
       console.warn("Using fallback stub data");
-      res.json({ plateNumber: "29A-123.45", confidence: 0.92 });
+      res.json({ plateNumber: "NONE", confidence: 0 });
     } else {
       next(err);
     }
@@ -72,6 +46,29 @@ exports.detectSlots = async (req, res, next) => {
       const processedImageUrl = result.data.processedImageUrl
         ? `${AI_SERVICE_URL}${result.data.processedImageUrl}`
         : null;
+
+
+      try {
+        const ParkingSlot = require("../models/ParkingSlot");
+        for (const slot of result.data.slots) {
+          const slotNum = parseInt(slot.code);
+          if (!isNaN(slotNum)) {
+            await ParkingSlot.findOneAndUpdate(
+              { slotNum: slotNum },
+              { 
+                slotNum: slotNum,
+                code: slotNum.toString(), // Set code rõ ràng để tránh duplicate key error
+                status: slot.status,
+                ...(slot.status === "available" ? { vehicleId: null } : {})
+              },
+              { upsert: true, setDefaultsOnInsert: true }
+            );
+          }
+        }
+        console.log("✅ Synced", result.data.slots.length, "slots to DB");
+      } catch (syncError) {
+        console.warn("⚠️ Failed to sync slots to DB:", syncError.message);
+      }
 
       res.json({
         slots: result.data.slots,
@@ -93,8 +90,8 @@ exports.detectSlots = async (req, res, next) => {
       console.warn("Using fallback stub data");
       res.json({
         slots: [
-          { code: "A1", status: "available" },
-          { code: "A2", status: "occupied" },
+          { code: "NONE", status: "available" },
+          { code: "NONE", status: "occupied" },
         ],
       });
     } else {

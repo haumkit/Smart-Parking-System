@@ -1,20 +1,19 @@
-import { useState, useRef } from 'react'
-import { detectPlate, detectSlots, type PlateDetectionResult, type SlotDetectionResult, type SlotDetectionResponse } from '../services/ai'
+import { useState, useRef, useEffect } from 'react'
+import { detectSlots, type SlotDetectionResult, type SlotDetectionResponse } from '../services/ai'
+import { walkInEntry, walkInExit, listAvailableSlots, type WalkInEntryResponse, type WalkInExitResponse, type AvailableSlot } from '../services/parking'
 
 export default function DashboardPage() {
 
   const [entryImage, setEntryImage] = useState<File | null>(null)
   const [entryPreview, setEntryPreview] = useState<string | null>(null)
-  const [entryTime, setEntryTime] = useState<string | null>(null)
-  const [entryPlateResult, setEntryPlateResult] = useState<PlateDetectionResult | null>(null)
+  const [entryResult, setEntryResult] = useState<WalkInEntryResponse | null>(null)
   const [entryLoading, setEntryLoading] = useState(false)
   const [entryError, setEntryError] = useState<string | null>(null)
   const entryFileInputRef = useRef<HTMLInputElement>(null)
 
   const [exitImage, setExitImage] = useState<File | null>(null)
   const [exitPreview, setExitPreview] = useState<string | null>(null)
-  const [exitTime, setExitTime] = useState<string | null>(null)
-  const [exitPlateResult, setExitPlateResult] = useState<PlateDetectionResult | null>(null)
+  const [exitResult, setExitResult] = useState<WalkInExitResponse | null>(null)
   const [exitLoading, setExitLoading] = useState(false)
   const [exitError, setExitError] = useState<string | null>(null)
   const exitFileInputRef = useRef<HTMLInputElement>(null)
@@ -24,16 +23,28 @@ export default function DashboardPage() {
   const [parkingProcessed, setParkingProcessed] = useState<string | null>(null)
   const [slotResults, setSlotResults] = useState<SlotDetectionResult[] | null>(null)
   const [availableSlotsCount, setAvailableSlotsCount] = useState<number>(0)
+  const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([])
   const [parkingLoading, setParkingLoading] = useState(false)
   const parkingFileInputRef = useRef<HTMLInputElement>(null)
+
+  const formatVNTime = (dateString: string): string => {
+    const date = new Date(dateString)
+    const vnTime = new Date(date.getTime() + (7 * 60 * 60 * 1000))
+    const day = String(vnTime.getUTCDate()).padStart(2, '0')
+    const month = String(vnTime.getUTCMonth() + 1).padStart(2, '0')
+    const year = vnTime.getUTCFullYear()
+    const hours = String(vnTime.getUTCHours()).padStart(2, '0')
+    const minutes = String(vnTime.getUTCMinutes()).padStart(2, '0')
+    const seconds = String(vnTime.getUTCSeconds()).padStart(2, '0')
+    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`
+  }
 
   const handleEntryImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       setEntryImage(file)
       setEntryPreview(URL.createObjectURL(file))
-      setEntryTime(null)
-      setEntryPlateResult(null)
+      setEntryResult(null)
       setEntryError(null)
     }
   }
@@ -43,14 +54,16 @@ export default function DashboardPage() {
 
     setEntryLoading(true)
     setEntryError(null)
-    const timestamp = new Date().toLocaleString('vi-VN')
-    setEntryTime(timestamp)
+    setEntryResult(null)
 
     try {
-      const result = await detectPlate(entryImage)
-      setEntryPlateResult(result)
+      const result = await walkInEntry(entryImage)
+      setEntryResult(result)
+      setEntryError(null) 
     } catch (err) {
-      setEntryError(err instanceof Error ? err.message : 'Detection failed')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to process entry'
+      setEntryError(errorMessage)
+      setEntryResult(null)
     } finally {
       setEntryLoading(false)
     }
@@ -61,8 +74,7 @@ export default function DashboardPage() {
     if (file) {
       setExitImage(file)
       setExitPreview(URL.createObjectURL(file))
-      setExitTime(null)
-      setExitPlateResult(null)
+      setExitResult(null)
       setExitError(null)
     }
   }
@@ -72,14 +84,16 @@ export default function DashboardPage() {
 
     setExitLoading(true)
     setExitError(null)
-    const timestamp = new Date().toLocaleString('vi-VN')
-    setExitTime(timestamp)
+    setExitResult(null)
 
     try {
-      const result = await detectPlate(exitImage)
-      setExitPlateResult(result)
+      const result = await walkInExit(exitImage)
+      setExitResult(result)
+      setExitError(null) 
     } catch (err) {
-      setExitError(err instanceof Error ? err.message : 'Detection failed')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to process exit'
+      setExitError(errorMessage)
+      setExitResult(null)
     } finally {
       setExitLoading(false)
     }
@@ -117,10 +131,34 @@ export default function DashboardPage() {
       } else {
         setParkingProcessed(parkingPreview)
       }
+
+      setTimeout(async () => {
+        try {
+          const availableData = await listAvailableSlots()
+          setAvailableSlots(availableData.slots)
+        } catch (err) {
+          console.error('Failed to load available slots:', err)
+        }
+      }, 500)
     } catch (err) {
       console.error('Parking detection error:', err)
     } finally {
       setParkingLoading(false)
+    }
+  }
+
+
+  useEffect(() => {
+    loadAvailableSlots()
+  }, [])
+
+  const loadAvailableSlots = async () => {
+    try {
+      const data = await listAvailableSlots()
+      setAvailableSlots(data.slots)
+      setAvailableSlotsCount(data.count)
+    } catch (err) {
+      console.error('Failed to load available slots:', err)
     }
   }
 
@@ -158,13 +196,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {entryTime && (
-            <div className="mb-4 p-2 bg-gray-50 rounded text-sm">
-              <span className="font-semibold">Thời gian vào: </span>
-              <span className="text-blue-600">{entryTime}</span>
-            </div>
-          )}
-
           {entryError && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded">
               <p className="text-red-800 font-semibold text-sm">Lỗi:</p>
@@ -172,13 +203,21 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {entryPlateResult && (
+          {entryResult && (
             <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded">
               <p className="text-sm font-semibold text-green-800">Biển số:</p>
-              <p className="text-xl font-bold text-green-600">{entryPlateResult.plateNumber}</p>
-              <p className="text-xs text-gray-600">
-                Độ tin cậy: {(entryPlateResult.confidence * 100).toFixed(1)}%
-              </p>
+              <p className="text-xl font-bold text-green-600">{entryResult.plateNumber}</p>
+              <div className="mt-2 pt-2 border-t border-green-300">
+                <p className="text-sm text-gray-700">
+                  <span className="font-semibold">Thời gian vào: </span>
+                  <span className="text-blue-600">{formatVNTime(entryResult.entryTime)}</span>
+                </p>
+                {entryResult.confidence && (
+                  <p className="text-xs text-gray-600 mt-1">
+                    Độ tin cậy: {(entryResult.confidence * 100).toFixed(1)}%
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
@@ -220,13 +259,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {exitTime && (
-            <div className="mb-4 p-2 bg-gray-50 rounded text-sm">
-              <span className="font-semibold">Thời gian ra: </span>
-              <span className="text-blue-600">{exitTime}</span>
-            </div>
-          )}
-
           {exitError && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded">
               <p className="text-red-800 font-semibold text-sm">Lỗi:</p>
@@ -234,13 +266,38 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {exitPlateResult && (
+          {exitResult && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded">
               <p className="text-sm font-semibold text-red-800">Biển số:</p>
-              <p className="text-xl font-bold text-red-600">{exitPlateResult.plateNumber}</p>
-              <p className="text-xs text-gray-600">
-                Độ tin cậy: {(exitPlateResult.confidence * 100).toFixed(1)}%
-              </p>
+              <p className="text-xl font-bold text-red-600">{exitResult.plateNumber}</p>
+              
+              <div className="mt-2 pt-2 border-t border-red-300 space-y-1">
+                <p className="text-sm text-gray-700">
+                  <span className="font-semibold">Thời gian vào: </span>
+                  <span className="text-blue-600">{formatVNTime(exitResult.entryTime)}</span>
+                </p>
+                <p className="text-sm text-gray-700">
+                  <span className="font-semibold">Thời gian ra: </span>
+                  <span className="text-blue-600">{formatVNTime(exitResult.exitTime)}</span>
+                </p>
+                <p className="text-sm text-gray-700">
+                  <span className="font-semibold">Thời gian đỗ: </span>
+                  <span className="text-blue-600">
+                    {(() => {
+                      const hours = Math.floor(exitResult.durationMinutes / 60)
+                      const minutes = exitResult.durationMinutes % 60
+                      if (hours === 0) {
+                        return `${minutes} phút`
+                      }
+                      return `${hours} giờ ${minutes > 0 ? `${minutes} phút` : ''}`
+                    })()}
+                  </span>
+                </p>
+                <p className="text-base font-bold text-red-700 mt-2 pt-2 border-t border-red-300">
+                  <span className="font-semibold">Tổng tiền: </span>
+                  <span className="text-lg">{new Intl.NumberFormat('vi-VN').format(exitResult.fee)} đ</span>
+                </p>
+              </div>
             </div>
           )}
 
@@ -274,13 +331,6 @@ export default function DashboardPage() {
             >
               Chọn ảnh bãi đỗ
             </button>
-            {/* TODO: Thêm nút "Load ảnh random" khi có API */}
-            {/* <button
-              onClick={loadRandomParkingImage}
-              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-            >
-              Load ảnh random
-            </button> */}
           </div>
         </div>
 
@@ -333,7 +383,22 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Nút xử lý */}
+        {availableSlots.length > 0 && (
+          <div className="mb-4 p-3 border border-green-200 rounded">
+            <h4 className="text-sm font-semibold text-green-800 mb-2">Các ô còn trống:</h4>
+            <div className="flex flex-wrap gap-2">
+              {availableSlots.map((slot) => (
+                <span
+                  key={slot.slotNum}
+                  className="px-3 py-1 bg-green-200 text-green-800 rounded-full text-sm font-semibold"
+                >
+                  {slot.code || `Slot ${slot.slotNum}`}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         <button
           onClick={handleParkingProcess}
           disabled={!parkingImage || parkingLoading}
@@ -341,28 +406,6 @@ export default function DashboardPage() {
         >
           {parkingLoading ? 'Đang xử lý...' : 'Xử Lý Ảnh Bãi Đỗ'}
         </button>
-
-        {/* Hiển thị kết quả chi tiết các ô */}
-        {slotResults && slotResults.length > 0 && (
-          <div className="mt-4 p-3 bg-gray-50 rounded">
-            <h4 className="text-sm font-semibold mb-2">Chi tiết các ô:</h4>
-            <div className="grid grid-cols-4 gap-2">
-              {slotResults.map((slot, idx) => (
-                <div
-                  key={idx}
-                  className={`p-2 rounded text-xs text-center ${
-                    slot.status === 'available'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}
-                >
-                  <div className="font-semibold">{slot.code}</div>
-                  <div className="text-xs">{slot.status}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )
