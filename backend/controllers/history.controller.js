@@ -46,7 +46,7 @@ exports.list = async (req, res, next) => {
         ];
       } else {
         filter.vehicleId = { $in: vehicleIds };
-      }
+    }
     }
     
     const records = await ParkingRecord.find(filter)

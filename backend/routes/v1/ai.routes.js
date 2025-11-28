@@ -17,9 +17,17 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+router.post("/webhook/plate-detected", ctrl.webhookPlateDetected);
+router.post("/webhook/slots-detected", ctrl.webhookSlotsDetected);
+
+router.get("/plate-stream/:cameraId", ctrl.plateDetectionStream);
+router.get("/slot-stream/:cameraId", ctrl.slotDetectionStream);
+
 router.use(authenticate);
 router.post("/plate", upload.single("image"), ctrl.detectPlate);
+router.get("/plate/from-camera/:cameraId", ctrl.detectPlateFromCamera);
 router.post("/slots", upload.single("image"), ctrl.detectSlots);
+router.get("/slots/from-camera/:cameraId", ctrl.detectSlotsFromCamera);
 
 module.exports = router;
 

@@ -258,7 +258,7 @@ def connected_components_analysis(thresh, LpImg):
     _, labels = cv2.connectedComponents(thresh)
     mask = np.zeros(thresh.shape, dtype="uint8")
     total_pixels = LpImg.shape[0] * LpImg.shape[1]
-    lower = total_pixels // 100
+    lower = total_pixels // 120
     upper = total_pixels // 15
 
     for label in np.unique(labels):
@@ -280,20 +280,73 @@ def is_near_border(rect, img_height, img_width, border_threshold=1):
             x + w >= img_width - border_threshold or
             y + h >= img_height - border_threshold)
 
+def clear_border(img_bin, thickness=4):
+    h, w = img_bin.shape
+    img_bin[0:thickness, :] = 0 
+    img_bin[h-thickness:h, :] = 0
+    img_bin[:, 0:thickness] = 0
+    img_bin[:, w-thickness:w] = 0
+    return img_bin
+
 def find_and_sort_contours(mask, LpImg):
     cnts, _ = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     boundingBoxes = [cv2.boundingRect(c) for c in cnts]
 
     height, width = LpImg.shape[:2]
-    boundingBoxes = [rect for rect in boundingBoxes if not is_near_border(rect, height, width)]
+    filtered_boxes = [rect for rect in boundingBoxes if not is_near_border(rect, height, width)]
+    # 2. TÍNH CHIỀU CAO CƠ SỞ (BASELINE HEIGHT)
+    heights = [h for x, y, w, h in filtered_boxes]
+    areas = [w * h for x, y, w, h in filtered_boxes]
+    
+    if not heights:
+        return []
+    
+    median_height = np.median(heights) 
+    median_area = np.median(areas)
+    # 3. LỌC DỰA TRÊN KÍCH THƯỚC VÀ TỶ LỆ
+    FINAL_BOXES = []
 
+    MIN_CHAR_HEIGHT_RATIO = 0.5   # Chiều cao tối thiểu của ký tự so với avg_height (giảm để bắt các ký tự hơi nhỏ)
+    MAX_CHAR_HEIGHT_RATIO = 1.3  # Chiều cao tối đa của ký tự (loại bỏ các BB quá cao, ví dụ: dính với nhiễu trên)
+    MIN_ASPECT_RATIO = 0.2        # Tỷ lệ W/H tối thiểu (loại bỏ các BB quá mảnh)
+    MAX_ASPECT_RATIO = 1.0        # Tỷ lệ W/H tối đa (loại bỏ các BB quá rộng như gạch ngang, dấu chấm)
+    MIN_AREA_RATIO = 0.3          # Diện tích phải > 30% trung bình
+    MAX_AREA_RATIO = 1.6          # Diện tích phải < 160% trung bình (loại bỏ vùng dính)
+
+    for x, y, w, h in filtered_boxes:
+        aspect_ratio = w / h
+        
+        # A. Lọc theo Chiều cao (đảm bảo nó là ký tự)
+        if not (median_height * MIN_CHAR_HEIGHT_RATIO <= h <= median_height * MAX_CHAR_HEIGHT_RATIO):
+            continue
+            
+        # B. Lọc theo Tỷ lệ Khung hình (đảm bảo không phải nhiễu rộng/mảnh)
+        if not (MIN_ASPECT_RATIO <= aspect_ratio <= MAX_ASPECT_RATIO):
+            continue
+            
+        # C. Lọc theo Chiều rộng tối đa (loại bỏ các vùng dính lớn bất thường)
+        # Nếu một BB có chiều rộng quá lớn so với chiều cao (ký tự)
+        if w > median_height * 1.1: # Chiều rộng không nên lớn hơn 1.2 lần chiều cao ký tự trung bình
+             continue
+        # D. Lọc theo Vị trí (Biên trái/phải 5%)
+        center_x = x + w / 2
+        if center_x < width * 0.05 or center_x > width * 0.95: 
+            continue
+
+        # E. [MỚI] Lọc theo Diện tích (Loại bỏ khối dính to hoặc chấm nhỏ)
+        area = w * h
+        if area < median_area * MIN_AREA_RATIO or area > median_area * MAX_AREA_RATIO:
+            continue
+        FINAL_BOXES.append((x, y, w, h))
+        
     def compare(rect1, rect2):
-        if abs(rect1[1] - rect2[1]) > 10:
+        if abs(rect1[1] - rect2[1]) > 20:
             return rect1[1] - rect2[1]
         else:
             return rect1[0] - rect2[0]
 
-    boundingBoxes = sorted(boundingBoxes, key=functools.cmp_to_key(compare))
+    boundingBoxes = sorted(FINAL_BOXES, key=functools.cmp_to_key(compare))
+    print(boundingBoxes)
     return boundingBoxes
 
 def preprocess_license_plate(image):
@@ -303,6 +356,19 @@ def preprocess_license_plate(image):
     blurred = cv2.GaussianBlur(enhanced_gray, (5, 5), 0)
     thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 45, 15)
     return thresh
+
+def encode_image_to_base64(image_array, ext=".jpg"):
+    if image_array is None:
+        return None
+
+    try:
+        success, buffer = cv2.imencode(ext, image_array)
+        if not success:
+            return None
+        return base64.b64encode(buffer.tobytes()).decode('utf-8')
+    except Exception as encode_error:
+        print(f"Failed to encode image to base64: {encode_error}")
+        return None
 
 class LicensePlateDetector:
     def __init__(self, wpod_model_path, ocr_model_path):
@@ -314,8 +380,8 @@ class LicensePlateDetector:
         self.ocr_model = tf_load_model(ocr_model_path, custom_objects={'aleatoric_loss': aleatoric_loss})
         
         self.classes = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-                       'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
-                       'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
+                       'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'K', 'L', 'M',
+                       'N', 'P', 'S', 'T', 'U', 'V', 'X', 'Y', 'Z']
         
         print("License Plate Detector initialized successfully!")
     
@@ -340,6 +406,7 @@ class LicensePlateDetector:
             LpImg_uint8 = np.array(LpImg[0] * 255, dtype=np.uint8)
 
             thresh, gray = preprocess_image(LpImg_uint8)
+            thresh = clear_border(thresh, thickness=4)
             mask = connected_components_analysis(thresh, LpImg_uint8)
             boundingBoxes = find_and_sort_contours(mask, LpImg_uint8)
 
@@ -347,53 +414,44 @@ class LicensePlateDetector:
                 return None
 
             predictions = []
+            confidences = []
+            debug_bin = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
+
             for i, (x, y, w, h) in enumerate(boundingBoxes):
                 try:
+                    cv2.rectangle(debug_bin, (x, y), (x+w, y+h), (0, 255, 0), 2)
                     char_img = LpImg_uint8[y:y+h, x:x+w]
-                    
-                    thresh = preprocess_license_plate(char_img)
-                    char_img_resized = cv2.resize(thresh, (28, 28))
+                    thresh_char = preprocess_license_plate(char_img)
+                    char_img_resized = cv2.resize(thresh_char, (28, 28))
                     
                     char_img_normalized = char_img_resized.astype('float32') / 255.0
                     char_img_input = char_img_normalized.reshape(1, 28, 28, 1)
 
                     char_pred = self.ocr_model.predict(char_img_input, verbose=0)
+
                     char_label = np.argmax(char_pred[0])
                     confidence = np.max(char_pred[0])
 
-                    predicted_char = self.classes[char_label]
-                    predictions.append(predicted_char)
+                    predictions.append(self.classes[char_label])
+                    confidences.append(confidence)
 
                 except Exception as e:
-                    print(f"Error processing character {i+1}: {e}")
+                    print(f"Lỗi xử lý ký tự {i}: {e}")
                     predictions.append('?')
+                    confidences.append(0.0)
 
             plate_number = ''.join(predictions)
-            
-            confidences = []
-            for i, (x, y, w, h) in enumerate(boundingBoxes):
-                try:
-                    char_img = LpImg_uint8[y:y+h, x:x+w]
-                    thresh = preprocess_license_plate(char_img)
-                    char_img_resized = cv2.resize(thresh, (28, 28))
-                    char_img_normalized = char_img_resized.astype('float32') / 255.0
-                    char_img_input = char_img_normalized.reshape(1, 28, 28, 1)
-                    char_pred = self.ocr_model.predict(char_img_input, verbose=0)
-                    confidences.append(np.max(char_pred[0]))
-                except:
-                    pass
-            
             avg_confidence = np.mean(confidences) if confidences else 0.5
 
             return {
                 'plateNumber': plate_number,
                 'confidence': float(avg_confidence),
-                'boundingBox': None
+                'boundingBox': None,
+                'plate_img_base64': encode_image_to_base64(LpImg_uint8),
+                'debug_img_base64': encode_image_to_base64(debug_bin)
             }
 
         except Exception as e:
             print(f"Detection error: {e}")
-            import traceback
-            traceback.print_exc()
             return None
 

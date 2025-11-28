@@ -1,152 +1,157 @@
 import cv2
-import numpy as np
 import os
+import base64
 from typing import List, Dict, Tuple
 
 try:
     from ultralytics import YOLO  # type: ignore
-    _ULTRA_AVAILABLE = True
+    ULTRA_AVAILABLE = True
 except Exception:
-    _ULTRA_AVAILABLE = False
+    ULTRA_AVAILABLE = False
 
-try:
-    import pandas as pd  # type: ignore
-    _PANDAS_AVAILABLE = True
-except Exception:
-    _PANDAS_AVAILABLE = False
+def encode_image_to_base64(image_array, ext=".jpg"):
+        if image_array is None:
+            return None
+
+        try:
+            success, buffer = cv2.imencode(ext, image_array)
+            if not success:
+                return None
+            return base64.b64encode(buffer.tobytes()).decode('utf-8')
+        except Exception as encode_error:
+            print(f"Failed to encode image to base64: {encode_error}")
+            return None
 
 class ParkingSlotDetector:
-    def __init__(self, model_path: str | None = None, polygon_csv_path: str | None = None, processed_dir: str = "uploads/processed", car_class_id: int = 1):
+    def __init__(
+        self,
+        model_path: str | None = None,
+        processed_dir: str = "uploads/processed",
+        car_class_id: int = 1,
+        empty_class_id: int = 0,
+        total_slots: int = 23,
+    ):
         self.model_path = model_path
-        self.polygon_csv_path = polygon_csv_path or os.getenv("SLOT_POLYGON_CSV", "slots_polygon.csv")
         self.processed_dir = processed_dir
-        self.car_class_id = int(os.getenv("SLOT_CAR_CLASS_ID", str(car_class_id)))
+        self.car_class_id = car_class_id
+        self.empty_class_id = empty_class_id
+        self.total_slots = total_slots
 
         os.makedirs(self.processed_dir, exist_ok=True)
-
         self.model = None
-        self.slots_df = None
 
-        if model_path and _ULTRA_AVAILABLE:
+        if model_path and ULTRA_AVAILABLE:
             try:
                 self.model = YOLO(model_path)
                 print(f"Parking Slot Detector: YOLO model loaded from {model_path}")
             except Exception as e:
                 print(f"Failed to load YOLO model '{model_path}': {e}")
         else:
-            if not _ULTRA_AVAILABLE:
+            if not ULTRA_AVAILABLE:
                 print("Ultralytics not available; running in stub mode")
-
-        if self.polygon_csv_path and _PANDAS_AVAILABLE and os.path.exists(self.polygon_csv_path):
-            try:
-                import pandas as pd  # local name to satisfy linters
-                self.slots_df = pd.read_csv(self.polygon_csv_path)
-                print(f"Loaded slot polygons from {self.polygon_csv_path} ({len(self.slots_df)} slots)")
-            except Exception as e:
-                print(f"Failed to load polygons CSV '{self.polygon_csv_path}': {e}")
-        else:
-            if not _PANDAS_AVAILABLE:
-                print("pandas not available; cannot load slot polygons CSV")
-            elif not os.path.exists(self.polygon_csv_path or ""):
-                print(f"Slot polygons CSV not found at {self.polygon_csv_path}; running in stub mode")
     
     def detect_from_image_path(self, image_path: str):
         image = cv2.imread(image_path)
         return self.detect_from_array(image, image_path)
-    
-    def detect_from_array(self, opencv_image, image_path: str | None = None):
-        try:
-            if self.model is not None and self.slots_df is not None:
-                # Run YOLO inference
-                results = self.model(image_path if image_path else opencv_image)[0]
 
-                car_points: List[Tuple[int, int]] = []
+    def detect_from_array(self, opencv_image, image_path: str | None = None):
+
+        try:
+            if self.model is not None:
+                results = self.model(image_path if image_path else opencv_image, verbose=False)[0]
+
+                all_boxes: List[Tuple[int, int, int, int, float, int]] = []
+
                 for box in results.boxes:
                     cls_id = int(box.cls[0])
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    confidence = float(box.conf[0])
+
+                    if confidence >= 0.6 and (cls_id == self.car_class_id or cls_id == self.empty_class_id):
+                        all_boxes.append((x1, y1, x2, y2, confidence, cls_id))
+
+                occupied_boxes: List[Tuple[int, int, int, int, float]] = []
+                empty_boxes: List[Tuple[int, int, int, int, float]] = []
+
+                for (x1, y1, x2, y2, conf, cls_id) in all_boxes:
                     if cls_id == self.car_class_id:
-                        x1, y1, x2, y2 = box.xyxy[0]
-                        cx, cy = int((x1 + x2) / 2), int((y1 + y2) / 2)
-                        car_points.append((cx, cy))
+                        occupied_boxes.append((x1, y1, x2, y2, conf))
+                    elif cls_id == self.empty_class_id:
+                        empty_boxes.append((x1, y1, x2, y2, conf))
 
-                occupied_slots: List[int] = []
+                occ_raw = len(occupied_boxes)
+                free_raw = len(empty_boxes)
 
-                # Check each polygon for car center point
-                for _, row in self.slots_df.iterrows():
-                    slot_id = int(row["SlotId"]) if "SlotId" in row else int(row[0])
-                    pts = np.array([
-                        [int(row["x1"]), int(row["y1"])],
-                        [int(row["x2"]), int(row["y2"])],
-                        [int(row["x3"]), int(row["y3"])],
-                        [int(row["x4"]), int(row["y4"])],
-                    ], np.int32).reshape((-1, 1, 2))
+                if occ_raw + free_raw > self.total_slots:
+                    if free_raw > occ_raw:
+                        occupied_slots = occ_raw
+                        free_slots = min(free_raw, self.total_slots - occupied_slots)
+                    else:
+                        free_slots = free_raw
+                        occupied_slots = min(occ_raw, self.total_slots - free_slots)
+                else:
+                    occupied_slots = occ_raw
+                    free_slots = free_raw
 
-                    for (cx, cy) in car_points:
-                        if cv2.pointPolygonTest(pts, (cx, cy), False) >= 0:
-                            occupied_slots.append(slot_id)
-                            break
+                
+                print(f"Occupied slots: {occupied_slots}, Free slots: {free_slots}, Total slots: {self.total_slots}")
 
-                all_slot_ids = [int(s) for s in self.slots_df["SlotId"].tolist()]
-                free_slots = [s for s in all_slot_ids if s not in occupied_slots]
-
-                # Draw overlay
                 overlay = opencv_image.copy()
-                for _, row in self.slots_df.iterrows():
-                    slot_id = int(row["SlotId"]) if "SlotId" in row else int(row[0])
-                    pts = np.array([
-                        [int(row["x1"]), int(row["y1"])],
-                        [int(row["x2"]), int(row["y2"])],
-                        [int(row["x3"]), int(row["y3"])],
-                        [int(row["x4"]), int(row["y4"])],
-                    ], np.int32).reshape((-1, 1, 2))
-                    color = (0, 0, 255) if slot_id in occupied_slots else (0, 255, 0)
-                    cv2.polylines(overlay, [pts], True, color, 2)
-                    M = cv2.moments(pts)
-                    if M["m00"] != 0:
-                        cx = int(M["m10"]/M["m00"])
-                        cy = int(M["m01"]/M["m00"])
-                        cv2.putText(overlay, str(slot_id), (cx - 10, cy + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
-                # Save processed image
+                for (x1, y1, x2, y2, conf) in empty_boxes:
+                    cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 200, 0), 2)
+                    label = f"{conf * 100:.1f}%"
+                    cv2.putText(overlay, label, (x1, y1 - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 0), 2)
+
+                for (x1, y1, x2, y2, conf) in occupied_boxes:
+                    cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                    label = f"{conf * 100:.1f}%"
+                    cv2.putText(overlay, label, (x1, y1 - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+
                 processed_path = None
                 if image_path:
                     base = os.path.splitext(os.path.basename(image_path))[0]
                     processed_filename = f"{base}_processed.jpg"
-                else:
-                    processed_filename = "processed.jpg"
-                processed_path = os.path.join(self.processed_dir, processed_filename)
-                cv2.imwrite(processed_path, overlay)
+                    processed_path = os.path.join(self.processed_dir, processed_filename)
+                    cv2.imwrite(processed_path, overlay)
 
-                # Build slot list
                 slot_list: List[Dict[str, object]] = []
-                for slot_id in all_slot_ids:
-                    status = 'occupied' if slot_id in occupied_slots else 'available'
+                counter = 1
+                for (_, _, _, _, conf) in empty_boxes:
                     slot_list.append({
-                        'code': str(slot_id),
-                        'status': status,
-                        'confidence': 1.0,
+                        'code': f"S{counter}",
+                        'status': 'available',
+                        'confidence': round(conf, 4),
                     })
+                    counter += 1
+                for (_, _, _, _, conf) in occupied_boxes:
+                    slot_list.append({
+                        'code': f"S{counter}",
+                        'status': 'occupied',
+                        'confidence': round(conf, 4),
+                    })
+                    counter += 1
 
                 return {
                     'slots': slot_list,
-                    'processedImagePath': processed_path.replace('\\', '/'),
-                    'totalSlots': len(all_slot_ids),
-                    'freeSlots': len(free_slots),
-                    'occupiedSlots': len(occupied_slots),
+                    'totalSlots': self.total_slots,
+                    'freeSlots': free_slots,
+                    'occupiedSlots': occupied_slots,
+                    'detectedCars': occupied_slots,
+                    'processedImageBase64': encode_image_to_base64(overlay),
                 }
 
             # Fallback stub
-            slots = [
-                {"code": "A1", "status": "available", "confidence": 0.95},
-                {"code": "A2", "status": "occupied", "confidence": 0.98},
-                {"code": "A3", "status": "available", "confidence": 0.92},
-                {"code": "B1", "status": "occupied", "confidence": 0.96},
-            ]
             return {
-                'slots': slots,
-                'processedImagePath': None,
-                'totalSlots': len(slots),
-                'freeSlots': len([s for s in slots if s['status'] == 'available']),
-                'occupiedSlots': len([s for s in slots if s['status'] == 'occupied']),
+                'slots': [
+                    {"code": "S1", "status": "available", "confidence": 0.95},
+                    {"code": "S2", "status": "occupied", "confidence": 0.98},
+                ],
+                'totalSlots': self.total_slots,
+                'freeSlots': max(0, self.total_slots - 1),
+                'occupiedSlots': 1,
+                'detectedCars': 1,
+                'processedImageBase64': encode_image_to_base64(opencv_image),
             }
             
         except Exception as e:
@@ -154,15 +159,12 @@ class ParkingSlotDetector:
             import traceback
             traceback.print_exc()
             
-            # Return stub data on error
             return {
-                'slots': [
-                    {"code": "A1", "status": "available", "confidence": 0.95},
-                    {"code": "A2", "status": "occupied", "confidence": 0.98},
-                ],
-                'processedImagePath': None,
-                'totalSlots': 2,
-                'freeSlots': 1,
-                'occupiedSlots': 1,
+                'slots': [],
+                'processedImageBase64': encode_image_to_base64(opencv_image),
+                'totalSlots': self.total_slots,
+                'freeSlots': self.total_slots,
+                'occupiedSlots': 0,
+                'detectedCars': 0,
             }
 
