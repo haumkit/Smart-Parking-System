@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { detectPlateFromCamera, connectPlateDetectionStream, connectSlotDetectionStream, detectSlotsFromCamera, type PlateDetectionResult, type SlotDetectionResponse } from '../services/ai'
-import { confirmEntryByPlate, confirmExitByPlate, getHourlyRate, updateHourlyRate } from '../services/parking'
+import { confirmEntryByPlate, confirmExitByPlate, getHourlyRate, updateHourlyRate, listSlots } from '../services/parking'
 
 const AI_BASE = import.meta.env.VITE_AI_BASE || 'http://localhost:5001'
 
@@ -64,6 +64,42 @@ export default function DashboardPage() {
       return () => clearTimeout(timer)
     }
   }, [toast])
+
+  const loadSlotsFromDb = async () => {
+    try {
+      const slotsFromDb = await listSlots()
+      if (!Array.isArray(slotsFromDb)) return
+
+      const mappedSlots = slotsFromDb.map((s: { code?: string; slotNum?: number; status?: string }) => {
+        const code = typeof s.code === 'string' ? s.code : String(s.slotNum ?? '')
+        const status: 'available' | 'occupied' = s.status === 'occupied' ? 'occupied' : 'available'
+        return {
+          code,
+          status,
+          confidence: 1,
+        }
+      })
+
+      const total = mappedSlots.length
+      const occupied = mappedSlots.filter((s) => s.status === 'occupied').length
+      const free = mappedSlots.filter((s) => s.status === 'available').length
+
+      const payload: SlotDetectionResponse = {
+        slots: mappedSlots,
+        totalSlots: total,
+        freeSlots: free,
+        occupiedSlots: occupied,
+        detectedCars: occupied,
+        processedImageBase64: null,
+      }
+
+      setSlotDetection(payload)
+      setSlotDetectionLoading(false)
+      setSlotError(null)
+    } catch (err) {
+      console.error('Failed to load slots from DB:', err)
+    }
+  }
 
   const handleEntryCamDetect = async () => {
     setEntryCamLoading(true)
@@ -276,7 +312,8 @@ export default function DashboardPage() {
       setSlotDetectionLoading(false)
     }
 
-    // Kết nối SSE camera vào
+    loadSlotsFromDb()
+
     try {
       entrySSERef.current = connectPlateDetectionStream('entry', (data) => {
         console.log('Entry camera detection:', data.plateNumber)
@@ -721,6 +758,71 @@ export default function DashboardPage() {
                     {slotDetection?.detectedCars != null ? slotDetection.detectedCars : '-'}
                   </span>
                 </p>
+
+                {slotDetection?.slots && slotDetection.slots.length > 0 && (
+                  <div className="mt-1 space-y-2 text-s">
+                    {(() => {
+                      const byCode: Record<string, (typeof slotDetection.slots)[number]> = {}
+                      for (const s of slotDetection.slots) {
+                        byCode[s.code] = s
+                      }
+
+                      const clusters = [
+                        { label: 'Cụm A', ids: [24, 25, 26, 27, 18] },
+                        { label: 'Cụm B', ids: [23, 22, 21, 20, 19] },
+                        { label: 'Cụm C', ids: [28, 29, 30, 31, 32] },
+                      ]
+
+                      return clusters.map((cluster) => {
+                        const group = cluster.ids
+                          .map((id) => byCode[`S${id}`])
+                          .filter((s): s is (typeof slotDetection.slots)[number] => !!s)
+
+                        if (group.length === 0) return null
+
+                        const freeCount = group.filter((s) => s.status === 'available').length
+
+                        return (
+                          <div key={cluster.label} className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-gray-700">{cluster.label}</span>
+                              <span className="text-[15px] text-gray-600">
+                                Trống: <span className="font-semibold text-green-700">{freeCount}</span>{' '}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {cluster.ids.map((id) => {
+                                const slot = byCode[`S${id}`]
+                                if (!slot) {
+                                  return (
+                                    <span
+                                      key={`S${id}`}
+                                      className="px-2 py-0.5 rounded border text-[15px] bg-gray-50 border-gray-200 text-gray-500"
+                                    >
+                                      S{id}: -
+                                    </span>
+                                  )
+                                }
+                                return (
+                                  <span
+                                    key={slot.code}
+                                    className={`px-2 py-0.5 rounded border text-[15px] ${
+                                      slot.status === 'occupied'
+                                        ? 'bg-red-100 border-red-300 text-red-700'
+                                        : 'bg-green-100 border-green-300 text-green-700'
+                                    }`}
+                                  >
+                                    {slot.code.replace(/^S/, '')}
+                                  </span>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )
+                      })
+                    })()}
+                  </div>
+                )}
               </div>
             </div>
 

@@ -12,6 +12,7 @@ scikit-image==0.25.2
 scipy==1.16.3
 ultralytics>=8.2.0
 pandas>=2.2.0
+scikit-learn
 
 # Optional utilities
 python-dotenv==1.0.0

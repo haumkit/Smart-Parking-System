@@ -4,7 +4,62 @@ import threading
 import time
 from typing import Dict, Optional, Union
 
+""" import csv
+import numpy as np
 
+SLOT_POLYGONS: list[dict] = []
+
+csv_path = os.path.join(os.path.dirname(__file__), "goc_chinh.csv")
+try:
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            try:
+                slot_id = int(row["SlotId"])
+            except (ValueError, KeyError):
+                continue
+            pts = np.array(
+                [
+                    [float(row["x1"]), float(row["y1"])],
+                    [float(row["x2"]), float(row["y2"])],
+                    [float(row["x3"]), float(row["3y"]) if "3y" in row else float(row["y3"])],
+                    [float(row["x4"]), float(row["y4"])],
+                ],
+                dtype=np.int32,
+            ).reshape((-1, 1, 2))
+            SLOT_POLYGONS.append({"id": slot_id, "pts": pts})
+except FileNotFoundError:
+    print(f"[WARN] goc_chinh.csv not found at {csv_path}")
+
+
+def draw_parking_polygons(frame):
+    if not SLOT_POLYGONS:
+        return frame
+
+    overlay = frame  
+    for slot in SLOT_POLYGONS:
+        pts = slot["pts"]
+        color = (0, 255, 0) 
+
+        cv2.polylines(overlay, [pts], True, color, 2)
+
+        M = cv2.moments(pts)
+        if M["m00"] != 0:
+            cx = int(M["m10"] / M["m00"])
+            cy = int(M["m01"] / M["m00"])
+            cv2.putText(
+                overlay,
+                str(slot["id"]),
+                (cx - 10, cy + 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                color,
+                2,
+            )
+
+    return overlay
+
+ """
 def parse_source(value: str) -> Union[int, str]:
     if value is None:
         return 0
@@ -91,8 +146,8 @@ class CameraStream:
                     frame = cv2.resize(frame, (self.width, self.height), 
                                        interpolation=cv2.INTER_LINEAR)
 
-            """ if self.camera_id == "exit":
-                cv2.imwrite(f"debug_exit_frame_{int(time.time())}.jpg", frame)  """
+                """ if self.camera_id == "parking":
+                    frame = draw_parking_polygons(frame) """
 
             if not self.debug_info_printed:
                 real_h, real_w = frame.shape[:2]

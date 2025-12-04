@@ -15,14 +15,17 @@ async function syncSlotsToDatabase(slots = []) {
 
   const ParkingSlot = require("../models/ParkingSlot");
   for (const slot of slots) {
-    const slotNum = parseInt(slot.code);
-    if (Number.isNaN(slotNum)) continue;
+    // code có thể là "S24" hoặc "24" -> lấy phần số cuối
+    const rawCode = String(slot.code ?? "");
+    const numericPart = rawCode.replace(/\D/g, "");
+    const slotNum = parseInt(numericPart, 10);
+    if (!numericPart || Number.isNaN(slotNum)) continue;
 
     await ParkingSlot.findOneAndUpdate(
       { slotNum },
       {
         slotNum,
-        code: slotNum.toString(),
+        code: rawCode || slotNum.toString(),
         status: slot.status,
         ...(slot.status === "available" ? { vehicleId: null } : {}),
       },

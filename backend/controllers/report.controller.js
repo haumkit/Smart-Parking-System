@@ -7,6 +7,7 @@ exports.stats = async (req, res, next) => {
     const { from, to } = req.query;
     const start = from ? new Date(from) : new Date(0);
     const end = to ? new Date(to) : new Date();
+    end.setHours(23, 59, 59, 999);
     const match = { createdAt: { $gte: start, $lte: end } };
     const agg = await ParkingRecord.aggregate([
       { $match: match },
@@ -34,6 +35,7 @@ exports.exportExcel = async (req, res, next) => {
     const { from, to } = req.query;
     const start = from ? new Date(from) : new Date(0);
     const end = to ? new Date(to) : new Date();
+    end.setHours(23, 59, 59, 999);
     const records = await ParkingRecord.find({ createdAt: { $gte: start, $lte: end } }).sort({ createdAt: -1 });
 
     const wb = new ExcelJS.Workbook();
@@ -62,6 +64,7 @@ exports.exportPdf = async (req, res, next) => {
     const { from, to } = req.query;
     const start = from ? new Date(from) : new Date(0);
     const end = to ? new Date(to) : new Date();
+    end.setHours(23, 59, 59, 999);
     const records = await ParkingRecord.find({ createdAt: { $gte: start, $lte: end } }).sort({ createdAt: -1 });
 
     const doc = new PDFDocument();
