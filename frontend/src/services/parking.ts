@@ -1,4 +1,4 @@
-import { apiGet, apiPost, API_BASE, getAuthHeaders } from './api'
+import { apiGet, apiPost, apiPut, API_BASE, getAuthHeaders } from './api'
 
 export interface WalkInEntryResponse {
   success: boolean
@@ -87,6 +87,44 @@ export async function checkIn(vehicleId: string, slotId: string) {
 
 export async function checkOut(recordId: string, pricingMode: 'per_hour' | 'per_30min') {
   return apiPost('/parking/check-out', { recordId, pricingMode })
+}
+
+export interface ConfirmEntryResponse {
+  success: boolean
+  plateNumber: string
+  vehicleId: string
+  recordId: string
+  entryTime: string
+  entryTimeVN?: string
+  hourlyRate?: number
+}
+
+export interface ConfirmExitResponse {
+  success: boolean
+  plateNumber: string
+  recordId: string
+  entryTime: string
+  exitTime: string
+  durationHours: number
+  durationMinutes: number
+  fee: number
+  hourlyRate?: number
+}
+
+export async function confirmEntryByPlate(plateNumber: string): Promise<ConfirmEntryResponse> {
+  return apiPost('/parking/confirm-entry', { plateNumber })
+}
+
+export async function confirmExitByPlate(plateNumber: string): Promise<ConfirmExitResponse> {
+  return apiPost('/parking/confirm-exit', { plateNumber })
+}
+
+export async function getHourlyRate(): Promise<{ success: boolean; hourlyRate: number }> {
+  return apiGet('/parking/rate')
+}
+
+export async function updateHourlyRate(hourlyRate: number): Promise<{ success: boolean; hourlyRate: number }> {
+  return apiPut('/parking/rate', { hourlyRate })
 }
 
 

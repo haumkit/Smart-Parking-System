@@ -56,17 +56,17 @@ MongoDB Atlas (Cloud)
 
 ### AI Detection
 
-- ✅ **License Plate**: Nhận dạng biển số xe
-- ⏳ **Parking Slots**: Nhận dạng trạng thái chỗ đỗ (stub)
+- **License Plate**: Nhận dạng biển số xe
+- **Parking Slots**: Nhận dạng trạng thái chỗ đỗ (stub)
 
 ### Core Features
 
-- ✅ User authentication (JWT)
-- ✅ Parking management
-- ✅ History tracking
-- ✅ Reports & analytics (admin only)
+- User authentication (JWT)
+- Parking management
+- History tracking
+- Reports & analytics (admin only)
 
-## 🔧 Tech Stack
+## Tech Stack
 
 **Frontend:**
 
@@ -124,7 +124,7 @@ Smart-Parking-System/
 └── docs/                    # Documentation
 ```
 
-## 🔑 Environment Variables
+## Environment Variables
 
 ### Backend (.env)
 
@@ -147,7 +147,7 @@ WPOD_MODEL_PATH=models/wpod-net
 OCR_MODEL_PATH=models/NhanDienKyTu.h5
 ```
 
-## 📊 API Endpoints
+## API Endpoints
 
 ### Backend (Port 5000)
 
@@ -165,7 +165,7 @@ OCR_MODEL_PATH=models/NhanDienKyTu.h5
 - `POST /api/detect/plate` - Detect plate
 - `POST /api/detect/slots` - Detect slots
 
-## 🚢 Deployment
+## Deployment
 
 ### Development
 

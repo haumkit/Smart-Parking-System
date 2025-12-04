@@ -2,6 +2,11 @@ const ParkingSlot = require("../models/ParkingSlot");
 const ParkingRecord = require("../models/ParkingRecord");
 const parkingService = require("../services/parking.service");
 
+// Lấy giá hiện tại để lưu vào record
+function getCurrentHourlyRate() {
+  return parkingService.getHourlyRate();
+}
+
 exports.listSlots = async (req, res, next) => {
   try {
     if (req.user.role === 'admin') {
@@ -101,7 +106,8 @@ exports.checkIn = async (req, res, next) => {
       vehicleId, 
       slotId, 
       userId: req.user.id,
-      entryTime: new Date() 
+      entryTime: new Date(),
+      hourlyRate: getCurrentHourlyRate() // Lưu giá tại thời điểm xe vào
     });
     await ParkingSlot.findByIdAndUpdate(slotId, { status: "occupied", vehicleId });
     res.status(201).json(record);
@@ -114,12 +120,8 @@ function calcFee(entry, exit, mode = "per_hour") {
   const ms = Math.max(0, exit - entry);
   const hour = 60 * 60 * 1000;
   const half = 30 * 60 * 1000;
-  if (mode === "per_30min") {
-    const blocks = Math.ceil(ms / half);
-    return blocks * 5000; // stub: 5k per 30min
-  }
   const hours = Math.ceil(ms / hour);
-  return hours * 10000; // stub: 10k per hour
+  return hours * 5000; 
 }
 
 exports.checkOut = async (req, res, next) => {
@@ -206,6 +208,88 @@ exports.walkInExit = async (req, res, next) => {
       return res.status(400).json({ success: false, message: err.message });
     }
     
+    next(err);
+  }
+};
+
+exports.confirmEntryByPlate = async (req, res, next) => {
+  try {
+    const { plateNumber } = req.body;
+
+    if (!plateNumber) {
+      return res.status(400).json({ success: false, message: "Plate number is required" });
+    }
+
+    const result = await parkingService.walkInEntryByPlate(plateNumber);
+
+    res.json({
+      success: true,
+      ...result,
+    });
+  } catch (err) {
+    console.error("Confirm entry by plate error:", err);
+    
+    if (err.message.includes("already in parking")) {
+      return res.status(409).json({ success: false, message: err.message });
+    }
+    if (err.message.includes("required")) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    
+    next(err);
+  }
+};
+
+
+exports.confirmExitByPlate = async (req, res, next) => {
+  try {
+    const { plateNumber } = req.body;
+
+    if (!plateNumber) {
+      return res.status(400).json({ success: false, message: "Plate number is required" });
+    }
+
+    const result = await parkingService.walkInExitByPlate(plateNumber);
+
+    res.json({
+      success: true,
+      ...result,
+    });
+  } catch (err) {
+    console.error("Confirm exit by plate error:", err);
+    
+    if (err.message.includes("Vehicle not found") || err.message.includes("No open parking record")) {
+      return res.status(404).json({ success: false, message: err.message });
+    }
+    if (err.message.includes("required")) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    
+    next(err);
+  }
+};
+
+exports.getHourlyRate = async (req, res, next) => {
+  try {
+    const rate = parkingService.getHourlyRate();
+    res.json({ success: true, hourlyRate: rate });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.updateHourlyRate = async (req, res, next) => {
+  try {
+    const { hourlyRate } = req.body;
+    if (hourlyRate === undefined) {
+      return res.status(400).json({ success: false, message: "hourlyRate is required" });
+    }
+    const rate = parkingService.setHourlyRate(hourlyRate);
+    res.json({ success: true, hourlyRate: rate });
+  } catch (err) {
+    if (err.message.includes("non-negative")) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
     next(err);
   }
 };

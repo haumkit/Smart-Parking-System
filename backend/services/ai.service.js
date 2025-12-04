@@ -17,7 +17,7 @@ async function callAIService(endpoint, filepath) {
     return response.data;
   } catch (error) {
     if (error.code === "ECONNREFUSED" || error.response?.status === 503) {
-      throw new Error("AI service is currently unavailable");
+      throw new Error("Dịch vụ AI không khả dụng");
     }
     throw error;
   }
@@ -32,7 +32,7 @@ async function callAIPlateFromCamera(cameraId) {
     return response.data;
   } catch (error) {
     if (error.code === "ECONNREFUSED" || error.response?.status === 503) {
-      throw new Error("AI service is currently unavailable");
+      throw new Error("Dịch vụ AI không khả dụng");
     }
     throw error;
   }
@@ -47,7 +47,7 @@ async function callAISlotsFromCamera(cameraId) {
     return response.data;
   } catch (error) {
     if (error.code === "ECONNREFUSED" || error.response?.status === 503) {
-      throw new Error("AI service is currently unavailable");
+      throw new Error("Dịch vụ AI không khả dụng");
     }
     throw error;
   }

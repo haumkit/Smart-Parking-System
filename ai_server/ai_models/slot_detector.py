@@ -29,7 +29,7 @@ class ParkingSlotDetector:
         processed_dir: str = "uploads/processed",
         car_class_id: int = 1,
         empty_class_id: int = 0,
-        total_slots: int = 23,
+        total_slots: int = 15,
     ):
         self.model_path = model_path
         self.processed_dir = processed_dir
@@ -99,9 +99,9 @@ class ParkingSlotDetector:
                 overlay = opencv_image.copy()
 
                 for (x1, y1, x2, y2, conf) in empty_boxes:
-                    cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 200, 0), 2)
+                    cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 200, 0), 3)
                     label = f"{conf * 100:.1f}%"
-                    cv2.putText(overlay, label, (x1, y1 - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 0), 2)
+                    cv2.putText(overlay, label, (x1, y1 - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 500, 0), 2)
 
                 for (x1, y1, x2, y2, conf) in occupied_boxes:
                     cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 0, 255), 2)

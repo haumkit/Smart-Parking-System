@@ -4,7 +4,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
-import ParkingPage from './pages/ParkingPage'
 import HistoryPage from './pages/HistoryPage'
 import ReportsPage from './pages/ReportsPage'
 import AppLayout from './components/AppLayout'
@@ -24,7 +23,6 @@ function HomeRedirect() {
   if (role === 'admin') {
     return <Navigate to="/dashboard" replace />
   }
-  return <Navigate to="/parking" replace />
 }
 
 function App() {
@@ -42,7 +40,6 @@ function App() {
           }
         >
           <Route index element={<HomeRedirect />} />
-          <Route path="parking" element={<ParkingPage />} />
           <Route
             path="dashboard"
             element={

@@ -18,7 +18,7 @@ def parse_source(value: str) -> Union[int, str]:
 
 
 class CameraStream:
-    def __init__(self, camera_id: str, source: Union[int, str], width: int = 640, height: int = 480):
+    def __init__(self, camera_id: str, source: Union[int, str], width: int, height: int):
         self.camera_id = camera_id
         self.source = source
         self.width = width
@@ -41,7 +41,7 @@ class CameraStream:
     def stop(self):
         self.running = False
         if self.thread and self.thread.is_alive():
-            self.thread.join(timeout=1.0)
+            self.thread.join(timeout=5.0)
         self._release()
 
     def _release(self):
@@ -70,7 +70,7 @@ class CameraStream:
         while self.running:
             if self.capture is None or not self.capture.isOpened():
                 if not self._init_capture():
-                    time.sleep(2)
+                    time.sleep(5)
                     continue
 
             ret, frame = self.capture.read()
@@ -79,6 +79,20 @@ class CameraStream:
                 self._release()
                 time.sleep(1)
                 continue
+
+            if not isinstance(self.source, int):
+                H, W, _ = frame.shape
+                
+                if W == 1280 and H == 720:
+                    frame = frame[:, 160 : W - 160] 
+                current_h, current_w = frame.shape[:2]
+                
+                if current_w != self.width or current_h != self.height:
+                    frame = cv2.resize(frame, (self.width, self.height), 
+                                       interpolation=cv2.INTER_LINEAR)
+
+            """ if self.camera_id == "exit":
+                cv2.imwrite(f"debug_exit_frame_{int(time.time())}.jpg", frame)  """
 
             if not self.debug_info_printed:
                 real_h, real_w = frame.shape[:2]
@@ -114,15 +128,15 @@ class MultiCameraManager:
         self._init_from_env()
 
     def _init_from_env(self):
-        entry_source = parse_source(os.getenv("CAM_ENTRY_SOURCE", "0"))
-        exit_source = parse_source(os.getenv("CAM_EXIT_SOURCE", "2"))
+        entry_source = parse_source(os.getenv("CAM_ENTRY_SOURCE", "1"))
+        exit_source = parse_source(os.getenv("CAM_EXIT_SOURCE", "3"))
         lot_source = parse_source(os.getenv("CAM_PARKING_SOURCE", "http:192.168.100.161:4747/video"))
-        """ http://huv12PM:123456@192.168.100.161:8081/video """
+        """  http:192.168.100.161:4747/video   http://huv12PM:123456@192.168.100.161:8081/video"""
         entry_width = int(os.getenv("CAM_ENTRY_WIDTH", "640"))
         entry_height = int(os.getenv("CAM_ENTRY_HEIGHT", "480"))
         exit_width = int(os.getenv("CAM_EXIT_WIDTH", "640"))
         exit_height = int(os.getenv("CAM_EXIT_HEIGHT", "480"))
-        parking_width = int(os.getenv("CAM_PARKING_WIDTH", "1280"))
+        parking_width = int(os.getenv("CAM_PARKING_WIDTH", "960"))
         parking_height = int(os.getenv("CAM_PARKING_HEIGHT", "720"))
 
         self.cameras = {

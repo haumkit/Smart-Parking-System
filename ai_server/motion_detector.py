@@ -16,7 +16,8 @@ class MotionDetector:
         ocr_delay: float = 2.0,
         stable_delay: float = 0.5,
         check_interval: float = 0.2,
-        on_plate_detected=None
+        on_plate_detected=None,
+        can_process_camera: Optional[Callable[[str], bool]] = None,
     ):
         self.camera_manager = camera_manager
         self.plate_detector = plate_detector
@@ -27,6 +28,7 @@ class MotionDetector:
         self.stable_delay = stable_delay
         self.check_interval = check_interval
         self.on_plate_detected = on_plate_detected
+        self.can_process_camera = can_process_camera
 
         self.motion_detected = False
         self.motion_last_time = 0
@@ -138,6 +140,12 @@ class MotionDetector:
                     continue
                 
                 now = time.time()
+
+                # Skip heavy OCR processing nếu cờ không cho phép cho camera này
+                if self.can_process_camera is not None and not self.can_process_camera(camera_id):
+                    # Vẫn đọc frame để giữ stream sống, nhưng bỏ qua detect/ocr
+                    time.sleep(self.check_interval)
+                    continue
                 
                 if self.detect_motion(frame):
                     self.motion_detected = True

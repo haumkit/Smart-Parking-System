@@ -30,6 +30,10 @@ router.post("/check-out", ctrl.checkOut);
 
 router.post("/walkin/entry", upload.single("image"), ctrl.walkInEntry);
 router.post("/walkin/exit", upload.single("image"), ctrl.walkInExit);
+router.post("/confirm-entry", ctrl.confirmEntryByPlate);
+router.post("/confirm-exit", ctrl.confirmExitByPlate);
+router.get("/rate", ctrl.getHourlyRate);
+router.put("/rate", authorize(["admin"]), ctrl.updateHourlyRate);
 
 module.exports = router;
 

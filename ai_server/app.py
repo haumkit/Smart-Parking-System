@@ -22,10 +22,10 @@ MAX_FILE_SIZE = 10 * 1024 * 1024
 
 WPOD_MODEL_PATH = os.getenv("WPOD_MODEL_PATH", "models/wpod-net")
 OCR_MODEL_PATH = os.getenv("OCR_MODEL_PATH", "models/last-dataset-update.h5")
-SLOT_MODEL_PATH = os.getenv("SLOT_MODEL_PATH", os.getenv("SLOT_YOLO_MODEL_PATH", "models/best.pt"))
+SLOT_MODEL_PATH = os.getenv("SLOT_MODEL_PATH", os.getenv("SLOT_YOLO_MODEL_PATH", "models/slots_model.pt"))
 PROCESSED_DIR = os.getenv("SLOT_PROCESSED_DIR", os.path.join(UPLOAD_FOLDER, "processed"))
-TOTAL_PARKING_SLOTS = int(os.getenv("TOTAL_PARKING_SLOTS", "23"))
-SLOT_DETECTION_INTERVAL = float(os.getenv("SLOT_DETECTION_INTERVAL", "60"))
+TOTAL_PARKING_SLOTS = int(os.getenv("TOTAL_PARKING_SLOTS", "15"))
+SLOT_DETECTION_INTERVAL = float(os.getenv("SLOT_DETECTION_INTERVAL", "1"))
 SLOT_DETECTION_CAMERAS = [
     cam.strip() for cam in os.getenv("SLOT_DETECTION_CAMERAS", "parking").split(",") if cam.strip()
 ]
@@ -42,6 +42,12 @@ BACKEND_WEBHOOK_URL = os.getenv("BACKEND_WEBHOOK_URL", "http://localhost:5000/ap
 BACKEND_SLOT_WEBHOOK_URL = os.getenv("BACKEND_SLOT_WEBHOOK_URL","http://localhost:5000/api/v1/ai/webhook/slots-detected")
 slot_detection_threads: dict[str, dict] = {}
 slot_detection_latest: dict[str, dict] = {}
+
+# Flags to control plate detection on entry/exit cameras based on parking occupancy
+DETECTION_FLAGS: dict[str, bool] = {
+    "entry": True,
+    "exit": True,
+}
 
 def load_ai_models():
     global plate_detector, slot_detector
@@ -66,6 +72,12 @@ def load_ai_models():
         plate_detector = None
         slot_detector = None
 
+def can_process_camera(camera_id: str) -> bool:
+    """Return whether plate detection should run for a given camera."""
+    # Default to True if no flag is set
+    return DETECTION_FLAGS.get(camera_id, True)
+
+
 def start_camera_manager():
     global camera_manager, motion_detectors
     try:
@@ -82,11 +94,12 @@ def start_camera_manager():
                         camera_manager=camera_manager,
                         plate_detector=plate_detector,
                         webhook_url=BACKEND_WEBHOOK_URL,
-                        motion_threshold_percent=0.05, 
+                        motion_threshold_percent=0.05,
                         ocr_delay=1.0,
                         stable_delay=0.3,
                         check_interval=0.5,
-                        on_plate_detected=detect_slots_once
+                        on_plate_detected=detect_slots_once,
+                        can_process_camera=can_process_camera,
                     )
                     motion_detector.start(camera_id)
                     motion_detectors[camera_id] = motion_detector
@@ -160,6 +173,18 @@ def detect_slots_once(camera_id: str):
             "processedImageBase64": processed_base64,
         }
         slot_detection_latest[camera_id] = payload
+
+        # - Khi hết chỗ (freeSlots == 0) thì tắt detect biển ở camera entry
+        # - Khi không có xe (occupiedSlots == 0) thì tắt detect biển ở camera exit
+        try:
+            free_slots = detection_result.get("freeSlots")
+            occupied_slots = detection_result.get("occupiedSlots")
+            if free_slots is not None:
+                DETECTION_FLAGS["entry"] = free_slots > 0
+            if occupied_slots is not None:
+                DETECTION_FLAGS["exit"] = occupied_slots > 0
+        except Exception as flag_err:
+            print(f"[SLOT] Failed to update detection flags: {flag_err}")
         
         send_slot_detection_to_backend(camera_id, payload)
         return True

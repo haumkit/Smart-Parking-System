@@ -1,4 +1,4 @@
-import { Link, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 export default function AppLayout() {
   const navigate = useNavigate()
@@ -11,35 +11,54 @@ export default function AppLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
-      <header className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4">
-          <span className="font-bold text-4xl text-blue-600">Smart Parking System</span>
-          <div className="max-w-7xl mx-auto px-4 py-5 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <nav className="flex items-center gap-6 text-sm">
+    <div className="min-h-screen bg-gray-100 text-gray-900">
+      <header className="bg-gray-600 border-b">
+          <div className="max-w-7xl mx-auto py-2 flex items-center justify-between">
+            <div className="flex items-center">
+              <nav className="flex items-center gap-4 text-lg font-bold">
                 {role === 'admin' && (
-                  <>
-                    <Link to="/dashboard" className="hover:underline focus:bg-red-500 rounded-md px-3 py-2 bg-blue-600 text-white">Dashboard</Link>
-                  </>
+                  <NavLink
+                    to="/dashboard"
+                    className={({ isActive }) =>
+                      `rounded-md px-5 py-2 text-white ${
+                        isActive ? 'bg-gray-800' : 'bg-gray-600 hover:bg-gray-700'
+                      }`
+                    }
+                  >
+                    TRANG CHỦ
+                  </NavLink>
                 )}
-                <Link to="/parking" className="hover:underline focus:bg-red-500 rounded-md px-3 py-2 bg-blue-600 text-white">Parking</Link>
-                <Link to="/history" className="hover:underline focus:bg-red-500 rounded-md px-3 py-2 bg-blue-600 text-white">History</Link>
+                <NavLink
+                  to="/history"
+                  className={({ isActive }) =>
+                    `rounded-md px-5 py-2 text-white ${
+                      isActive ? 'bg-gray-800' : 'bg-gray-600 hover:bg-gray-700'
+                    }`
+                  }
+                >
+                  LỊCH SỬ
+                </NavLink>
                 {role === 'admin' && (
-                  <>
-                    <Link to="/reports" className="hover:underline focus:bg-red-500 rounded-md px-3 py-2 bg-blue-600 text-white">Reports</Link>
-                  </>
+                  <NavLink
+                    to="/reports"
+                    className={({ isActive }) =>
+                      `rounded-md px-5 py-2 text-white ${
+                        isActive ? 'bg-gray-800' : 'bg-gray-600 hover:bg-gray-700'
+                      }`
+                    }
+                  >
+                    BÁO CÁO
+                  </NavLink>
                 )}
               </nav>
             </div>
             <div className="flex items-center gap-3 text-sm">
-              <span className="text-gray-600">{name} ({role})</span>
-              <button onClick={logout} className="px-3 py-1 rounded bg-gray-900 text-white">Logout</button>
+              <span className="text-white">{name} ({role})</span>
+              <button onClick={logout} className="px-3 py-2 rounded bg-gray-900 text-white">Đăng xuất</button>
             </div>
           </div>
-        </div>
       </header>
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main className="max-w-7xl mx-auto py-3">
         <Outlet />
       </main>
     </div>
