@@ -28,6 +28,18 @@ export default function AppLayout() {
                     TRANG CHỦ
                   </NavLink>
                 )}
+                {role === 'user' && (
+                  <NavLink
+                    to="/parking-status"
+                    className={({ isActive }) =>
+                      `rounded-md px-5 py-2 text-white ${
+                        isActive ? 'bg-gray-800' : 'bg-gray-600 hover:bg-gray-700'
+                      }`
+                    }
+                  >
+                    TRẠNG THÁI BÃI
+                  </NavLink>
+                )}
                 <NavLink
                   to="/history"
                   className={({ isActive }) =>
@@ -50,6 +62,26 @@ export default function AppLayout() {
                     BÁO CÁO
                   </NavLink>
                 )}
+                <NavLink
+                  to={role === 'admin' ? '/vehicles' : '/my-vehicles'}
+                  className={({ isActive }) =>
+                    `rounded-md px-5 py-2 text-white ${
+                      isActive ? 'bg-gray-800' : 'bg-gray-600 hover:bg-gray-700'
+                    }`
+                  }
+                >
+                  PHƯƠNG TIỆN
+                </NavLink>
+                <NavLink
+                  to={role === 'admin' ? '/monthly-pass' : '/my-monthly-pass'}
+                  className={({ isActive }) =>
+                    `rounded-md px-5 py-2 text-white ${
+                      isActive ? 'bg-gray-800' : 'bg-gray-600 hover:bg-gray-700'
+                    }`
+                  }
+                >
+                  VÉ THÁNG
+                </NavLink>
               </nav>
             </div>
             <div className="flex items-center gap-3 text-sm">

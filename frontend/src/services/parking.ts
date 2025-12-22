@@ -97,6 +97,7 @@ export interface ConfirmEntryResponse {
   entryTime: string
   entryTimeVN?: string
   hourlyRate?: number
+  hasMonthlyPass?: boolean
 }
 
 export interface ConfirmExitResponse {
@@ -109,6 +110,7 @@ export interface ConfirmExitResponse {
   durationMinutes: number
   fee: number
   hourlyRate?: number
+  hasMonthlyPass?: boolean
 }
 
 export async function confirmEntryByPlate(plateNumber: string): Promise<ConfirmEntryResponse> {

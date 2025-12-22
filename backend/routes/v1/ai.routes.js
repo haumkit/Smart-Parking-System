@@ -24,6 +24,7 @@ router.get("/plate-stream/:cameraId", ctrl.plateDetectionStream);
 router.get("/slot-stream/:cameraId", ctrl.slotDetectionStream);
 
 router.use(authenticate);
+router.get("/cameras/:cameraId/stream", ctrl.proxyCameraStream);
 router.post("/plate", upload.single("image"), ctrl.detectPlate);
 router.get("/plate/from-camera/:cameraId", ctrl.detectPlateFromCamera);
 router.post("/slots", upload.single("image"), ctrl.detectSlots);

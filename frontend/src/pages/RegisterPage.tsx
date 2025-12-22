@@ -6,7 +6,6 @@ export default function RegisterPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState<'user' | 'admin'>('user')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -18,7 +17,7 @@ export default function RegisterPage() {
     setError('')
     setSuccess(false)
     try {
-      const data = await register(name, email, password, role)
+      const data = await register(name, email, password, 'user')
       
 
       localStorage.setItem('token', data.token)
@@ -28,10 +27,10 @@ export default function RegisterPage() {
       
       setSuccess(true)
 
-      const redirectPath = data.user.role === 'admin' ? '/dashboard' : '/parking'
+      const redirectPath = data.user.role === 'admin' ? '/dashboard' : '/parking-status'
       setTimeout(() => navigate(redirectPath), 1500)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed')
+      setError(err instanceof Error ? err.message : 'Đăng ký thất bại')
     } finally {
       setLoading(false)
     }
@@ -40,23 +39,23 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen grid place-items-center bg-gray-50">
       <form onSubmit={onSubmit} className="w-full max-w-sm bg-white rounded-lg shadow p-6 space-y-4">
-        <h1 className="text-xl font-semibold">Create Account</h1>
+        <h1 className="text-2xl font-semibold">Tạo tài khoản</h1>
         {error && <p className="text-sm text-red-600">{error}</p>}
-        {success && <p className="text-sm text-green-600">✅ Registration successful! Redirecting...</p>}
+        {success && <p className="text-sm text-green-600">✅ Đăng ký thành công! Đang chuyển hướng...</p>}
         
         <div className="space-y-1">
-          <label className="font-semibold text-sm block text-left">Name</label>
+          <label className="font-semibold text-s block text-left">Tên</label>
           <input 
             value={name} 
             onChange={e => setName(e.target.value)} 
             className="w-full border rounded px-3 py-2" 
-            placeholder="Your name"
+            placeholder="Tên của bạn"
             required
           />
         </div>
         
         <div className="space-y-1">
-          <label className="font-semibold text-sm block text-left">Email</label>
+          <label className="font-semibold text-s block text-left">Email</label>
           <input 
             type="email"
             value={email} 
@@ -68,7 +67,7 @@ export default function RegisterPage() {
         </div>
         
         <div className="space-y-1">
-          <label className="font-semibold text-sm block text-left">Password</label>
+          <label className="font-semibold text-s block text-left">Mật khẩu</label>
           <input 
             type="password" 
             value={password} 
@@ -78,26 +77,14 @@ export default function RegisterPage() {
           />
         </div>
         
-        <div className="space-y-1">
-          <label className="font-semibold text-sm block text-left">Role</label>
-          <select
-            value={role}
-            onChange={e => setRole(e.target.value as 'user' | 'admin')}
-            className="w-full border rounded px-3 py-2"
-          >
-            <option value="user">User</option>
-            <option value="admin">Admin</option>
-          </select>
-        </div>
-        
         <button disabled={loading} className="w-full py-2 rounded bg-gray-900 text-white">
-          {loading ? 'Creating account...' : 'Create Account'}
+          {loading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
         </button>
         
         <p className="text-xs text-center text-gray-500">
-          Already have an account?{' '}
+          Đã có tài khoản?{' '}
           <Link to="/login" className="text-blue-600 hover:underline">
-            Sign in
+            Đăng nhập
           </Link>
         </p>
       </form>

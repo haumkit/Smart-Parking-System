@@ -2,32 +2,17 @@ const ParkingSlot = require("../models/ParkingSlot");
 const ParkingRecord = require("../models/ParkingRecord");
 const parkingService = require("../services/parking.service");
 
-// Lấy giá hiện tại để lưu vào record
 function getCurrentHourlyRate() {
   return parkingService.getHourlyRate();
 }
 
 exports.listSlots = async (req, res, next) => {
   try {
-    if (req.user.role === 'admin') {
-      const slots = await ParkingSlot.find()
-        .populate('vehicleId')
-        .sort({ code: 1 });
-      return res.json(slots);
-    }
-    
-    const Vehicle = require("../models/Vehicle");
-    const userVehicles = await Vehicle.find({ ownerId: req.user.id }).select("_id");
-    const vehicleIds = userVehicles.map(v => v._id);
-    
-    const slots = await ParkingSlot.find({
-      vehicleId: { $in: vehicleIds },
-      status: 'occupied'
-    })
-    .populate('vehicleId')
-    .sort({ code: 1 });
-    
-    res.json(slots);
+    // Tất cả user đều xem được trạng thái bãi đỗ
+    const slots = await ParkingSlot.find({})
+      .select('slotNum code status')
+      .sort({ slotNum: 1 });
+    return res.json(slots);
   } catch (err) {
     next(err);
   }
@@ -102,8 +87,13 @@ exports.checkIn = async (req, res, next) => {
       }
     }
     
+    const Vehicle = require("../models/Vehicle");
+    const vehicleDoc = await Vehicle.findById(vehicleId);
+    const plate = vehicleDoc?.plateNumber || "";
+
     const record = await ParkingRecord.create({ 
       vehicleId, 
+      plateNumber: plate,
       slotId, 
       userId: req.user.id,
       entryTime: new Date(),
@@ -177,9 +167,6 @@ exports.walkInEntry = async (req, res, next) => {
   }
 };
 
-/**
- * Walk-in Exit: Controller receives image only, calls service to detect plate and close ParkingRecord
- */
 exports.walkInExit = async (req, res, next) => {
   try {
     const file = req.file;

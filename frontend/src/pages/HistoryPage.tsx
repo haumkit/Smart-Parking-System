@@ -7,6 +7,7 @@ import {
   updateHistory,
   deleteHistory,
 } from '../services/history'
+import { exportExcel } from '../services/reports'
 
 export default function HistoryPage() {
   const [records, setRecords] = useState<ParkingRecord[]>([])
@@ -24,16 +25,32 @@ export default function HistoryPage() {
     fee: '0',
     hourlyRate: '',
   })
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [status, setStatus] = useState<'all' | 'completed' | 'pending'>('all')
   const role = localStorage.getItem('role') || 'user'
 
   useEffect(() => {
-    loadHistory()
+    const end = new Date()
+    const start = new Date()
+    start.setDate(end.getDate() - 6)
+    const fmt = (d: Date) => d.toISOString().slice(0, 10)
+    const fromStr = fmt(start)
+    const toStr = fmt(end)
+    setFromDate(fromStr)
+    setToDate(toStr)
+    loadHistory(undefined, fromStr, toStr, 'all')
   }, [])
 
-  async function loadHistory(plate?: string) {
+  async function loadHistory(plate?: string, from?: string, to?: string, s?: 'all' | 'completed' | 'pending') {
     try {
       setLoading(true)
-      const data = await listHistory(plate)
+      const data = await listHistory({
+        plate,
+        from,
+        to,
+        status: s === 'all' ? undefined : s,
+      })
       setRecords(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load history')
@@ -42,8 +59,31 @@ export default function HistoryPage() {
     }
   }
 
+  function clearFilters() {
+    setSearchPlate('')
+    const end = new Date()
+    const start = new Date()
+    start.setDate(end.getDate() - 6)
+    const fmt = (d: Date) => d.toISOString().slice(0, 10)
+    const fromStr = fmt(start)
+    const toStr = fmt(end)
+    setFromDate(fromStr)
+    setToDate(toStr)
+    setStatus('all')
+    loadHistory(undefined, fromStr, toStr, 'all')
+  }
+
   function handleSearch() {
-    loadHistory(searchPlate || undefined)
+    loadHistory(searchPlate || undefined, fromDate || undefined, toDate || undefined, status)
+  }
+
+  async function handleExportHistory() {
+    try {
+      await exportExcel(fromDate || undefined, toDate || undefined)
+    } catch (err) {
+      console.error('Export history error:', err)
+      alert('Không thể xuất lịch sử. Vui lòng thử lại.')
+    }
   }
 
   function formatDate(dateString: string | null) {
@@ -60,7 +100,7 @@ export default function HistoryPage() {
   function formatCurrency(amount: number) {
     return new Intl.NumberFormat('vi-VN').format(amount) + ' đ'
   }
-
+/*
   function toInputDateTime(value: string | null) {
     if (!value) return ''
     const d = new Date(value)
@@ -97,7 +137,7 @@ export default function HistoryPage() {
     setModalError(null)
     setModalOpen(true)
   }
-
+ */
   function handleCloseModal() {
     setModalOpen(false)
     setEditingRecord(null)
@@ -157,6 +197,7 @@ export default function HistoryPage() {
   return (
     <div className="space-y-4">
 
+      
       {modalOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-20">
           <div className="bg-white rounded shadow-lg w-full max-w-md p-4">
@@ -246,31 +287,79 @@ export default function HistoryPage() {
       )}
 
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">
-          {role === 'admin' ? 'Lịch sử bãi đỗ (Tất cả)' : 'Lịch sử bãi đỗ của tôi'}
+        <h2 className="mt-2 text-xl font-semibold">
+          {role === 'admin' ? 'Lịch sử bãi đỗ' : 'Lịch sử bãi đỗ của tôi'}
         </h2>
-        {role === 'admin' && (
-          <button onClick={handleOpenAdd} className="px-4 py-2 rounded bg-green-600 text-white">
-            Thêm
-          </button>
-        )}
       </div>
 
-      <div className="flex items-center gap-2">
-        <input
-          value={searchPlate}
-          onChange={(e) => setSearchPlate(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-          className="border rounded px-3 py-2 flex-1"
-          placeholder="Tìm kiếm theo biển số"
-        />
+      <div className="flex flex-wrap gap-2 items-end">
+        <div>
+          <label className="text-s block font-medium text-slate-700 mb-1">Biển số</label>
+          <input
+            type="text"
+            value={searchPlate}
+            onChange={(e) => setSearchPlate(e.target.value)}
+            className="border rounded px-3 py-2 text-s"
+            placeholder="Nhập biển số"
+          />
+        </div>
+        <div>
+          <label className="text-s block font-medium text-slate-700 mb-1">Từ ngày</label>
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="border rounded px-3 py-2 text-s"
+          />
+        </div>
+        <div>
+          <label className="text-s block font-medium text-slate-700 mb-1">Đến ngày</label>
+          <input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="border rounded px-3 py-2 text-s"
+          />
+        </div>
+        <div>
+          <label className="text-s block font-medium text-slate-700 mb-1">Trạng thái</label>
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value as typeof status)}
+            className="border rounded px-3 py-2 text-s"
+          >
+            <option value="all">Tất cả</option>
+            <option value="completed">Hoàn thành</option>
+            <option value="pending">Đang gửi</option>
+          </select>
+        </div>
         <button
           onClick={handleSearch}
-          className="px-4 py-2 rounded bg-gray-900 text-white"
+          className="px-3 py-2 rounded bg-gray-900 text-white text-s disabled:bg-gray-400"
         >
           Tìm kiếm
         </button>
+        <button
+          onClick={clearFilters}
+          className="px-3 py-2 rounded bg-white text-gray-800 text-s border"
+        >
+          Xóa lọc
+        </button>
+        { role === 'admin' && (
+        <button
+          onClick={handleExportHistory}
+          className="px-4 py-2 rounded bg-blue-600 text-white"
+        >
+          Xuất lịch sử (Excel)
+        </button>
+        )}
+        {/* {role === 'admin' && (
+          <button onClick={handleOpenAdd} className="px-4 py-2 rounded bg-green-600 text-white">
+            Thêm
+          </button>
+        )} */}
       </div>
+
 
       {error ? (
         <div className="text-center py-8 text-red-600">
@@ -318,17 +407,18 @@ export default function HistoryPage() {
                           : 'bg-green-200 text-green-700'
                       }`}
                     >
-                      {record.exitTime ? 'Hoàn thành' : 'Đang hoạt động'}
+                      {record.exitTime ? 'Hoàn thành' : 'Đang gửi'}
                     </span>
                   </td>
                   {role === 'admin' && (
                     <td className="p-2 text-center">
-                      <button
+                      
+                      {/* <button
                         onClick={() => handleOpenEdit(record)}
                         className="px-3 py-1 mr-2 rounded bg-green-600 text-white text-s"
                       >
                         Sửa
-                      </button>
+                      </button> */}
                       <button
                         onClick={() => handleDelete(record)}
                         className="px-3 py-1 rounded bg-red-600 text-white text-s"

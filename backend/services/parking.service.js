@@ -1,8 +1,21 @@
 const Vehicle = require("../models/Vehicle");
 const ParkingRecord = require("../models/ParkingRecord");
+const MonthlyPass = require("../models/MonthlyPass");
 const { callAIService } = require("./ai.service");
 
-let HOURLY_RATE = parseFloat(process.env.PARKING_HOURLY_RATE) || 5000; 
+let HOURLY_RATE = parseFloat(process.env.PARKING_HOURLY_RATE) || 5000;
+
+// Kiểm tra xe có vé tháng còn hạn không
+async function checkValidMonthlyPass(vehicleId) {
+  const now = new Date();
+  const pass = await MonthlyPass.findOne({
+    vehicleId,
+    status: "approved",
+    startDate: { $lte: now },
+    endDate: { $gte: now },
+  });
+  return !!pass;
+} 
 
 function formatVietnamTime(date) {
   if (!date) return null;
@@ -65,12 +78,16 @@ async function walkInEntry(imagePath) {
     throw new Error(`Xe ${plateNumber} đã có trong bãi.`);
   }
 
+  // Check vé tháng
+  const hasMonthlyPass = await checkValidMonthlyPass(vehicle._id);
+
   const record = await ParkingRecord.create({
     vehicleId: vehicle._id,
     entryTime: entryTime,
     exitTime: null,
     fee: 0,
-    hourlyRate: HOURLY_RATE, // Lưu giá tại thời điểm xe vào
+    hourlyRate: HOURLY_RATE,
+    hasMonthlyPass,
     slotId: null,
   });
 
@@ -81,6 +98,7 @@ async function walkInEntry(imagePath) {
     entryTime: record.entryTime,
     entryTimeVN: formatVietnamTime(record.entryTime),
     confidence: aiResult.data.confidence ?? null,
+    hasMonthlyPass,
   };
 }
 
@@ -115,10 +133,20 @@ async function walkInExit(imagePath) {
   const exitTime = new Date();
   record.exitTime = exitTime;
   
-  // Tính tiền theo giá đã lưu khi xe vào (hoặc giá hiện tại nếu record cũ không có)
-  const feeCalculation = calculateFee(record.entryTime, exitTime, record.hourlyRate);
-  record.fee = feeCalculation.fee;
+  // Nếu có vé tháng (check lúc vào) thì miễn phí
+  let fee = 0;
+  let feeCalculation = { durationHours: 0, durationMinutes: 0, fee: 0 };
   
+  if (!record.hasMonthlyPass) {
+    feeCalculation = calculateFee(record.entryTime, exitTime, record.hourlyRate);
+    fee = feeCalculation.fee;
+  } else {
+    const durationMs = exitTime.getTime() - record.entryTime.getTime();
+    feeCalculation.durationMinutes = Math.floor(durationMs / (1000 * 60));
+    feeCalculation.durationHours = Math.ceil(feeCalculation.durationMinutes / 60);
+  }
+  
+  record.fee = fee;
   await record.save();
 
   return {
@@ -130,6 +158,7 @@ async function walkInExit(imagePath) {
     durationMinutes: feeCalculation.durationMinutes,
     fee: record.fee,
     hourlyRate: record.hourlyRate,
+    hasMonthlyPass: record.hasMonthlyPass,
   };
 }
 
@@ -167,12 +196,16 @@ async function walkInEntryByPlate(plateNumber) {
     throw new Error(`Xe ${normalizedPlate} đã có trong bãi.`);
   }
 
+  // Check vé tháng
+  const hasMonthlyPass = await checkValidMonthlyPass(vehicle._id);
+
   const record = await ParkingRecord.create({
     vehicleId: vehicle._id,
     entryTime: entryTime,
     exitTime: null,
     fee: 0,
     hourlyRate: HOURLY_RATE,
+    hasMonthlyPass,
     slotId: null,
   });
 
@@ -183,6 +216,7 @@ async function walkInEntryByPlate(plateNumber) {
     entryTime: record.entryTime,
     entryTimeVN: formatVietnamTime(record.entryTime),
     hourlyRate: record.hourlyRate,
+    hasMonthlyPass,
   };
 }
 
@@ -214,11 +248,23 @@ async function walkInExitByPlate(plateNumber) {
   const exitTime = new Date();
   record.exitTime = exitTime;
   
-  // Nếu record không có hourlyRate (record cũ), dùng giá hiện tại
-  const hourlyRateToUse = record.hourlyRate || HOURLY_RATE;
-  const feeCalculation = calculateFee(record.entryTime, exitTime, hourlyRateToUse);
-  record.fee = feeCalculation.fee;
+  // Nếu có vé tháng (check lúc vào) thì miễn phí
+  let fee = 0;
+  let feeCalculation = { durationHours: 0, durationMinutes: 0, fee: 0 };
   
+  if (!record.hasMonthlyPass) {
+    // Nếu record không có hourlyRate (record cũ), dùng giá hiện tại
+    const hourlyRateToUse = record.hourlyRate || HOURLY_RATE;
+    feeCalculation = calculateFee(record.entryTime, exitTime, hourlyRateToUse);
+    fee = feeCalculation.fee;
+  } else {
+    // Vẫn tính thời gian để hiển thị
+    const durationMs = exitTime.getTime() - record.entryTime.getTime();
+    feeCalculation.durationMinutes = Math.floor(durationMs / (1000 * 60));
+    feeCalculation.durationHours = Math.ceil(feeCalculation.durationMinutes / 60);
+  }
+  
+  record.fee = fee;
   await record.save();
 
   return {
@@ -229,7 +275,8 @@ async function walkInExitByPlate(plateNumber) {
     durationHours: feeCalculation.durationHours,
     durationMinutes: feeCalculation.durationMinutes,
     fee: record.fee,
-    hourlyRate: hourlyRateToUse, 
+    hourlyRate: record.hourlyRate || HOURLY_RATE,
+    hasMonthlyPass: record.hasMonthlyPass,
   };
 }
 

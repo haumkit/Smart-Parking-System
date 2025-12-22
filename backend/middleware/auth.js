@@ -1,11 +1,21 @@
 const jwt = require("jsonwebtoken");
 
 function authenticate(req, res, next) {
+  // Check token from Authorization header or query string (for img src, SSE, etc.)
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  const tokenFromQuery = req.query.token;
+  
+  let token = null;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.split(" ")[1];
+  } else if (tokenFromQuery) {
+    token = tokenFromQuery;
+  }
+  
+  if (!token) {
     return res.status(401).json({ message: "Unauthorized" });
   }
-  const token = authHeader.split(" ")[1];
+  
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET || "dev_secret");
     req.user = payload;

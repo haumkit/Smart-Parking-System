@@ -2,8 +2,13 @@ const Vehicle = require("../models/Vehicle");
 
 exports.create = async (req, res, next) => {
   try {
-    const vehicle = await Vehicle.create(req.body);
-    res.status(201).json(vehicle);
+    const vehicle = await Vehicle.create({
+      ...req.body,
+      registeredTime: req.body.registeredTime || new Date(),
+      status: "approved", // Admin tạo mặc định approved
+    });
+    const populated = await Vehicle.findById(vehicle._id).populate("ownerId", "name email");
+    res.status(201).json(populated);
   } catch (err) {
     next(err);
   }
@@ -13,8 +18,36 @@ exports.list = async (req, res, next) => {
   try {
     const { plate } = req.query;
     const filter = plate ? { plateNumber: new RegExp(plate, "i") } : {};
-    const vehicles = await Vehicle.find(filter).sort({ createdAt: -1 });
+    const vehicles = await Vehicle.find(filter)
+      .populate("ownerId", "name email")
+      .sort({ createdAt: -1 });
     res.json(vehicles);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// User: Lấy xe của mình (bao gồm cả pending để xem trạng thái)
+exports.listMy = async (req, res, next) => {
+  try {
+    const vehicles = await Vehicle.find({ ownerId: req.user.id }).sort({ createdAt: -1 });
+    res.json(vehicles);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// User: Thêm xe của mình (status pending, cần admin duyệt)
+exports.createMy = async (req, res, next) => {
+  try {
+    const { plateNumber } = req.body;
+    const vehicle = await Vehicle.create({
+      plateNumber,
+      ownerId: req.user.id,
+      registeredTime: new Date(),
+      status: "pending", 
+    });
+    res.status(201).json(vehicle);
   } catch (err) {
     next(err);
   }
@@ -22,7 +55,7 @@ exports.list = async (req, res, next) => {
 
 exports.get = async (req, res, next) => {
   try {
-    const vehicle = await Vehicle.findById(req.params.id);
+    const vehicle = await Vehicle.findById(req.params.id).populate("ownerId", "name email");
     if (!vehicle) return res.status(404).json({ message: "Not found" });
     res.json(vehicle);
   } catch (err) {
@@ -32,9 +65,18 @@ exports.get = async (req, res, next) => {
 
 exports.update = async (req, res, next) => {
   try {
-    const vehicle = await Vehicle.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const vehicle = await Vehicle.findById(req.params.id);
     if (!vehicle) return res.status(404).json({ message: "Not found" });
-    res.json(vehicle);
+    
+    // User chỉ được sửa xe của mình
+    if (req.user.role !== 'admin' && vehicle.ownerId?.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    
+    Object.assign(vehicle, req.body);
+    await vehicle.save();
+    const populated = await Vehicle.findById(vehicle._id).populate("ownerId", "name email");
+    res.json(populated);
   } catch (err) {
     next(err);
   }
@@ -42,8 +84,62 @@ exports.update = async (req, res, next) => {
 
 exports.remove = async (req, res, next) => {
   try {
+    const vehicle = await Vehicle.findById(req.params.id);
+    if (!vehicle) return res.status(404).json({ message: "Not found" });
+    
+    // User chỉ được xóa xe của mình
+    if (req.user.role !== 'admin' && vehicle.ownerId?.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    
     await Vehicle.findByIdAndDelete(req.params.id);
     res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Admin: Duyệt phương tiện
+exports.approve = async (req, res, next) => {
+  try {
+    const vehicle = await Vehicle.findById(req.params.id);
+    if (!vehicle) return res.status(404).json({ message: "Not found" });
+    
+    vehicle.status = "approved";
+    vehicle.approvedBy = req.user.id;
+    vehicle.approvedAt = new Date();
+    await vehicle.save();
+    
+    res.json(vehicle);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Admin: Từ chối phương tiện
+exports.reject = async (req, res, next) => {
+  try {
+    const vehicle = await Vehicle.findById(req.params.id);
+    if (!vehicle) return res.status(404).json({ message: "Not found" });
+    
+    vehicle.status = "rejected";
+    vehicle.approvedBy = req.user.id;
+    vehicle.approvedAt = new Date();
+    await vehicle.save();
+    
+    res.json(vehicle);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Admin: Lấy danh sách phương tiện chờ duyệt
+exports.listPending = async (req, res, next) => {
+  try {
+    const vehicles = await Vehicle.find({ status: "pending" })
+      .populate("ownerId", "name email")
+      .sort({ createdAt: -1 });
+    res.json(vehicles);
   } catch (err) {
     next(err);
   }

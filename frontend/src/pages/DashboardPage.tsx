@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { detectPlateFromCamera, connectPlateDetectionStream, connectSlotDetectionStream, detectSlotsFromCamera, type PlateDetectionResult, type SlotDetectionResponse } from '../services/ai'
+import { API_BASE } from '../services/api'
 import { confirmEntryByPlate, confirmExitByPlate, getHourlyRate, updateHourlyRate, listSlots } from '../services/parking'
-
-const AI_BASE = import.meta.env.VITE_AI_BASE || 'http://localhost:5001'
 
 export default function DashboardPage() {
   type BillingInfo = {
@@ -12,6 +11,7 @@ export default function DashboardPage() {
     durationMinutes?: number | null
     fee?: number | null
     hourlyRate?: number | null
+    hasMonthlyPass?: boolean
   }
 
   const [slotDetection, setSlotDetection] = useState<SlotDetectionResponse | null>(null)
@@ -47,6 +47,10 @@ export default function DashboardPage() {
   const [rateSaving, setRateSaving] = useState(false)
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+
+  const isValidPlate = useCallback((plate: string) => {
+    return /^[1-9][0-9][A-HK-NP-TVXYZ][0-9]{4,5}$/.test(plate.toUpperCase())
+  }, [])
 
   const entrySSERef = useRef<EventSource | null>(null)
   const exitSSERef = useRef<EventSource | null>(null)
@@ -151,6 +155,11 @@ export default function DashboardPage() {
     const plateToUse = entryPlateManual ?? entryCamPlate?.plateNumber
     if (!plateToUse) return
 
+    if (!isValidPlate(plateToUse)) {
+      showToast('Biển số không hợp lệ!', 'error')
+      return
+    }
+
     setEntryConfirmLoading(true)
     try {
       const result = await confirmEntryByPlate(plateToUse)
@@ -162,9 +171,11 @@ export default function DashboardPage() {
         durationMinutes: null,
         fee: null,
         hourlyRate: result.hourlyRate ?? null,
+        hasMonthlyPass: result.hasMonthlyPass ?? false,
       })
       
-      showToast(`Đã xác nhận xe vào: ${result.plateNumber}`, 'success')
+      showToast(`Đã xác nhận xe vào: ${result.plateNumber}${result.hasMonthlyPass ? ' (Vé tháng)' : ''}`, 'success')
+      setEntryPlateManual('')
     } catch (err) {
       console.error('Lỗi xác nhận xe vào:', err)
       let errorMsg = 'Không thể xác nhận xe vào.'
@@ -180,11 +191,16 @@ export default function DashboardPage() {
     } finally {
       setEntryConfirmLoading(false)
     }
-  }, [entryPlateManual, entryCamPlate?.plateNumber, showToast])
+  }, [entryPlateManual, entryCamPlate?.plateNumber, showToast, isValidPlate])
 
   const handleConfirmExit = useCallback(async () => {
     const plateToUse = exitPlateManual ?? exitCamPlate?.plateNumber
     if (!plateToUse) return
+
+    if (!isValidPlate(plateToUse)) {
+      showToast('Biển số không hợp lệ!', 'error')
+      return
+    }
 
     setExitConfirmLoading(true)
     try {
@@ -197,12 +213,17 @@ export default function DashboardPage() {
         durationMinutes: result.durationMinutes,
         fee: result.fee,
         hourlyRate: result.hourlyRate ?? null,
+        hasMonthlyPass: result.hasMonthlyPass ?? false,
       })
       
+      const feeText = result.hasMonthlyPass 
+        ? '0 đ (Vé tháng)' 
+        : new Intl.NumberFormat('vi-VN').format(result.fee) + ' đ'
       showToast(
-        `Đã xác nhận xe ra: ${result.plateNumber} - Phí: ${new Intl.NumberFormat('vi-VN').format(result.fee)} đ`,
+        `Đã xác nhận xe ra: ${result.plateNumber} - Phí: ${feeText}`,
         'success'
       )
+      setExitPlateManual('')
     } catch (err) {
       console.error('Lỗi xác nhận xe ra:', err)
       let errorMsg = 'Không thể xác nhận xe ra.'
@@ -218,7 +239,7 @@ export default function DashboardPage() {
     } finally {
       setExitConfirmLoading(false)
     }
-  }, [exitPlateManual, exitCamPlate?.plateNumber, showToast])
+  }, [exitPlateManual, exitCamPlate?.plateNumber, showToast, isValidPlate])
 
   useEffect(() => {
     if (entryCamPlate) {
@@ -387,7 +408,7 @@ export default function DashboardPage() {
           <div className="mb-3">
             {entryCamConnected ? (
               <img
-                src={`${AI_BASE}/api/cameras/entry/stream`}
+                src={`${API_BASE}/ai/cameras/entry/stream?token=${encodeURIComponent(localStorage.getItem('token') || '')}`}
                 alt="Camera xe vào"
                 className="w-full aspect-[4/3] object-cover rounded border border-gray-300"
                 onLoad={() => setEntryCamConnected(true)}
@@ -464,7 +485,7 @@ export default function DashboardPage() {
           <div className="mb-3">
             {exitCamConnected ? (
               <img
-                src={`${AI_BASE}/api/cameras/exit/stream`}
+                src={`${API_BASE}/ai/cameras/exit/stream?token=${encodeURIComponent(localStorage.getItem('token') || '')}`}
                 alt="Camera xe ra"
                 className="w-full aspect-[4/3] object-cover rounded border border-gray-300"
                 onLoad={() => setExitCamConnected(true)}
@@ -679,17 +700,21 @@ export default function DashboardPage() {
               <div className="flex justify-between">
                 <span className="text-slate-600 font-semibold">Giá (1 giờ):</span>
                 <span className="font-bold text-slate-900">
-                  {billingInfo?.hourlyRate != null
-                    ? new Intl.NumberFormat('vi-VN').format(billingInfo.hourlyRate) + ' đ'
-                    : '-'}
+                  {billingInfo?.hasMonthlyPass
+                    ? <span className="text-green-600">Vé tháng</span>
+                    : billingInfo?.hourlyRate != null
+                      ? new Intl.NumberFormat('vi-VN').format(billingInfo.hourlyRate) + ' đ'
+                      : '-'}
                 </span>
               </div>
 
               <div className="flex justify-between">
                 <span className="text-red-600 font-semibold">Tổng tiền:</span>
-                <span className="font-bold text-red-700">
+                <span className={`font-bold ${billingInfo?.hasMonthlyPass ? 'text-green-600' : 'text-red-700'}`}>
                   {billingInfo?.fee != null
-                    ? new Intl.NumberFormat('vi-VN').format(billingInfo.fee) + ' đ'
+                    ? billingInfo.hasMonthlyPass
+                      ? '0 đ'
+                      : new Intl.NumberFormat('vi-VN').format(billingInfo.fee) + ' đ'
                     : '-'}
                 </span>
               </div>
@@ -706,7 +731,7 @@ export default function DashboardPage() {
             <h3 className="text-lg font-semibold mb-3 text-gray-700">Camera Bãi Đỗ Gốc</h3>
             {parkingCamConnected ? (
               <img
-                src={`${AI_BASE}/api/cameras/parking/stream`}
+                src={`${API_BASE}/ai/cameras/parking/stream?token=${encodeURIComponent(localStorage.getItem('token') || '')}`}
                 alt="Bãi đỗ hiện tại"
                 className="w-full aspect-[4/3] object-cover rounded border border-gray-300"
                 onLoad={() => setParkingCamConnected(true)}

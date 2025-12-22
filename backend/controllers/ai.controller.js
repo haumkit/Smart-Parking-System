@@ -1,4 +1,5 @@
 const { AI_SERVICE_URL, callAIService, callAIPlateFromCamera, callAISlotsFromCamera } = require("../services/ai.service");
+const axios = require("axios");
 
 // Plate SSE clients storage: { cameraId: Set<res> }
 const sseClients = new Map();
@@ -7,15 +8,34 @@ const latestDetections = new Map();
 // Slot SSE storage
 const slotSseClients = new Map();
 const latestSlotDetections = new Map();
+const lastSavedSlotHash = new Map(); // cameraId -> hash để tránh ghi DB khi không đổi
 
-async function syncSlotsToDatabase(slots = []) {
+function hashSlots(slots = []) {
+  try {
+    const norm = (Array.isArray(slots) ? slots : [])
+      .map((s) => ({
+        code: String(s.code ?? ""),
+        status: String(s.status ?? ""),
+      }))
+      .sort((a, b) => a.code.localeCompare(b.code));
+    return JSON.stringify(norm);
+  } catch {
+    return "";
+  }
+}
+
+async function syncSlotsToDatabase(slots = [], cameraId = "default") {
   if (!Array.isArray(slots) || slots.length === 0) {
+    return;
+  }
+
+  const currentHash = hashSlots(slots);
+  if (currentHash && lastSavedSlotHash.get(cameraId) === currentHash) {
     return;
   }
 
   const ParkingSlot = require("../models/ParkingSlot");
   for (const slot of slots) {
-    // code có thể là "S24" hoặc "24" -> lấy phần số cuối
     const rawCode = String(slot.code ?? "");
     const numericPart = rawCode.replace(/\D/g, "");
     const slotNum = parseInt(numericPart, 10);
@@ -32,6 +52,8 @@ async function syncSlotsToDatabase(slots = []) {
       { upsert: true, setDefaultsOnInsert: true }
     );
   }
+
+  lastSavedSlotHash.set(cameraId, currentHash);
 }
 
 exports.detectPlate = async (req, res, next) => {
@@ -168,7 +190,7 @@ exports.webhookSlotsDetected = async (req, res, next) => {
 
     if (payload.slots.length) {
       try {
-        await syncSlotsToDatabase(payload.slots);
+        await syncSlotsToDatabase(payload.slots, cameraId);
       } catch (syncErr) {
         console.warn("Slot DB sync failed:", syncErr.message);
       }
@@ -228,11 +250,14 @@ exports.plateDetectionStream = async (req, res, next) => {
       });
     }
 
-    // Set SSE headers
+    // Set SSE headers with CORS
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.setHeader("X-Accel-Buffering", "no"); // Disable nginx buffering
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Headers", "Cache-Control");
 
     // Add client to set
     if (!sseClients.has(cameraId)) {
@@ -309,6 +334,9 @@ exports.slotDetectionStream = async (req, res, next) => {
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.setHeader("X-Accel-Buffering", "no");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Headers", "Cache-Control");
 
     if (!slotSseClients.has(cameraId)) {
       slotSseClients.set(cameraId, new Set());
@@ -351,7 +379,7 @@ exports.detectSlotsFromCamera = async (req, res, next) => {
 
     if (result.success && result.data) {
       try {
-        await syncSlotsToDatabase(result.data.slots || []);
+        await syncSlotsToDatabase(result.data.slots || [], cameraId);
         console.log("Synced", result.data.slots.length, "slots to DB from camera", cameraId);
       } catch (syncError) {
         console.warn("Failed to sync slots to DB:", syncError.message);
@@ -377,6 +405,40 @@ exports.detectSlotsFromCamera = async (req, res, next) => {
   }
 };
 
+exports.proxyCameraStream = async (req, res, next) => {
+  try {
+    const { cameraId } = req.params;
+    if (!cameraId) {
+      return res.status(400).json({ success: false, message: "Missing cameraId" });
+    }
+
+    const upstream = await axios({
+      method: "get",
+      url: `${AI_SERVICE_URL}/api/cameras/${cameraId}/stream`,
+      responseType: "stream",
+      timeout: 20000,
+    });
+
+    // Forward content type if available
+    if (upstream.headers["content-type"]) {
+      res.setHeader("Content-Type", upstream.headers["content-type"]);
+    }
+    
+    // Add CORS headers for video stream
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+
+    upstream.data.on("error", next);
+    upstream.data.pipe(res);
+  } catch (err) {
+    console.error("Proxy camera stream error:", err.message);
+    if (err.code === "ECONNREFUSED") {
+      return res.status(503).json({ success: false, message: "AI service unavailable" });
+    }
+    next(err);
+  }
+};
+
 exports.detectSlots = async (req, res, next) => {
   try {
     const file = req.file;
@@ -388,7 +450,7 @@ exports.detectSlots = async (req, res, next) => {
 
     if (result.success && result.data) {
       try {
-        await syncSlotsToDatabase(result.data.slots || []);
+        await syncSlotsToDatabase(result.data.slots || [], "upload");
         console.log("Synced", result.data.slots.length, "slots to DB");
       } catch (syncError) {
         console.warn("Failed to sync slots to DB:", syncError.message);

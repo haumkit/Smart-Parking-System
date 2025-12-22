@@ -40,4 +40,29 @@ exports.me = async (req, res) => {
   res.json({ user: req.user });
 };
 
+exports.searchUsers = async (req, res, next) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.trim().length === 0) {
+      return res.json([]);
+    }
+    
+    const searchRegex = new RegExp(q.trim(), "i");
+    const users = await User.find({
+      role: "user",   
+      $or: [
+        { name: searchRegex },
+        { email: searchRegex }
+      ]
+    })
+    .select("_id name email")
+    .limit(10)
+    .sort({ name: 1 });
+    
+    res.json(users);
+  } catch (err) {
+    next(err);
+  }
+};
+
 

@@ -6,6 +6,11 @@ import RegisterPage from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
 import HistoryPage from './pages/HistoryPage'
 import ReportsPage from './pages/ReportsPage'
+import VehiclesPage from './pages/VehiclesPage'
+import MonthlyPassPage from './pages/MonthlyPassPage'
+import ParkingStatusPage from './pages/ParkingStatusPage'
+import MyVehiclesPage from './pages/MyVehiclesPage'
+import MyMonthlyPassPage from './pages/MyMonthlyPassPage'
 import AppLayout from './components/AppLayout'
 
 function RequireAuth({ children, role }: { children: React.ReactNode; role?: 'admin' | 'user' }) {
@@ -23,6 +28,7 @@ function HomeRedirect() {
   if (role === 'admin') {
     return <Navigate to="/dashboard" replace />
   }
+  return <Navigate to="/parking-status" replace />
 }
 
 function App() {
@@ -54,6 +60,46 @@ function App() {
             element={
               <RequireAuth role="admin">
                 <ReportsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="vehicles"
+            element={
+              <RequireAuth role="admin">
+                <VehiclesPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="monthly-pass"
+            element={
+              <RequireAuth role="admin">
+                <MonthlyPassPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="parking-status"
+            element={
+              <RequireAuth role="user">
+                <ParkingStatusPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="my-vehicles"
+            element={
+              <RequireAuth role="user">
+                <MyVehiclesPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="my-monthly-pass"
+            element={
+              <RequireAuth role="user">
+                <MyMonthlyPassPage />
               </RequireAuth>
             }
           />

@@ -25,7 +25,7 @@ OCR_MODEL_PATH = os.getenv("OCR_MODEL_PATH", "models/last-dataset-update.h5")
 SLOT_MODEL_PATH = os.getenv("SLOT_MODEL_PATH", os.getenv("SLOT_YOLO_MODEL_PATH", "models/slots_model.pt"))
 PROCESSED_DIR = os.getenv("SLOT_PROCESSED_DIR", os.path.join(UPLOAD_FOLDER, "processed"))
 TOTAL_PARKING_SLOTS = int(os.getenv("TOTAL_PARKING_SLOTS", "15"))
-SLOT_DETECTION_INTERVAL = float(os.getenv("SLOT_DETECTION_INTERVAL", "2"))
+SLOT_DETECTION_INTERVAL = float(os.getenv("SLOT_DETECTION_INTERVAL", "15"))
 SLOT_DETECTION_CAMERAS = [
     cam.strip() for cam in os.getenv("SLOT_DETECTION_CAMERAS", "parking").split(",") if cam.strip()
 ]

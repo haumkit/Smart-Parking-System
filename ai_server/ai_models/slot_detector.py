@@ -166,20 +166,18 @@ class ParkingSlotDetector:
                 assigned_slots = None
 
                 try:
-                    yolo_results = results.boxes
+                    yolo_results = all_boxes
                     boxes_xy = []
 
-                    for b in yolo_results:
-                        x1_f, y1_f, x2_f, y2_f = b.xyxy[0].tolist()
-                        cx = (x1_f + x2_f) / 2.0
-                        cy = (y1_f + y2_f) / 2.0
-                        conf_f = float(b.conf[0])
+                    for (x1, y1, x2, y2, conf_f, cls_id) in yolo_results:
+                        cx = (x1 + x2) / 2.0
+                        cy = (y1 + y2) / 2.0
                         boxes_xy.append({
-                            "bbox": (x1_f, y1_f, x2_f, y2_f),
-                            "cx": cx,
-                            "cy": cy,
-                            "status": int(b.cls[0]),
-                            "conf": conf_f,
+                            "bbox": (x1, y1, x2, y2), 
+                            "cx": cx, 
+                            "cy": cy, 
+                            "status": cls_id, 
+                            "conf": conf_f
                         })
 
                     if len(boxes_xy) >= 15:
@@ -274,24 +272,7 @@ class ParkingSlotDetector:
                             'status': status,
                             'confidence': round(conf_f, 4),
                         })
-                else:
-                    # Fallback: giữ logic cũ nếu chưa gán được slot_id
-                    counter = 1
-                    for (_, _, _, _, conf) in empty_boxes:
-                        slot_list.append({
-                            'code': f"S{counter}",
-                            'status': 'available',
-                            'confidence': round(conf, 4),
-                        })
-                        counter += 1
-                    for (_, _, _, _, conf) in occupied_boxes:
-                        slot_list.append({
-                            'code': f"S{counter}",
-                            'status': 'occupied',
-                            'confidence': round(conf, 4),
-                        })
-                        counter += 1
-
+                # Dù có mapping hay không, vẫn trả kết quả đã có
                 return {
                     'slots': slot_list,
                     'totalSlots': self.total_slots,
@@ -301,16 +282,12 @@ class ParkingSlotDetector:
                     'processedImageBase64': encode_image_to_base64(overlay),
                 }
 
-            # Fallback stub
             return {
-                'slots': [
-                    {"code": "S1", "status": "available", "confidence": 0.95},
-                    {"code": "S2", "status": "occupied", "confidence": 0.98},
-                ],
+                'slots': [],
                 'totalSlots': self.total_slots,
-                'freeSlots': max(0, self.total_slots - 1),
-                'occupiedSlots': 1,
-                'detectedCars': 1,
+                'freeSlots': self.total_slots,
+                'occupiedSlots': 0,
+                'detectedCars': 0,
                 'processedImageBase64': encode_image_to_base64(opencv_image),
             }
             

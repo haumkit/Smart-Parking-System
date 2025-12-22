@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { loadStats, exportExcel, exportPdf } from '../services/reports'
+import { useEffect, useState, useCallback } from 'react'
+import { loadStats, exportExcel, exportPdf, exportStatsExcel, exportStatsPdf } from '../services/reports'
 
 interface StatItem {
   _id: {
@@ -18,6 +18,20 @@ export default function ReportsPage() {
   const [error, setError] = useState<string | null>(null)
   const [items, setItems] = useState<StatItem[]>([])
 
+  const handleLoad = useCallback(async (fromDate: string, toDate: string) => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await loadStats(fromDate, toDate)
+      setItems(data.items || [])
+    } catch (err) {
+      console.error('Load stats error:', err)
+      setError('Không thể tải báo cáo. Vui lòng thử lại.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     const end = new Date()
     const start = new Date()
@@ -30,21 +44,7 @@ export default function ReportsPage() {
     setFrom(fromStr)
     setTo(toStr)
     handleLoad(fromStr, toStr)
-  }, [])
-
-  async function handleLoad(customFrom?: string, customTo?: string) {
-    try {
-      setLoading(true)
-      setError(null)
-      const data = await loadStats(customFrom ?? from, customTo ?? to)
-      setItems(data.items || [])
-    } catch (err) {
-      console.error('Load stats error:', err)
-      setError('Không thể tải báo cáo. Vui lòng thử lại.')
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [handleLoad])
 
   const totalVehicles = items.reduce((sum, it) => sum + (it.count || 0), 0)
   const totalRevenue = items.reduce((sum, it) => sum + (it.revenue || 0), 0)
@@ -83,7 +83,7 @@ export default function ReportsPage() {
           />
         </div>
         <button
-          onClick={() => handleLoad()}
+          onClick={() => handleLoad(from, to)}
           className="px-3 py-2 rounded bg-gray-900 text-white text-s disabled:bg-gray-400"
           disabled={loading}
         >
@@ -93,13 +93,25 @@ export default function ReportsPage() {
           onClick={() => exportExcel(from, to)}
           className="px-3 py-2 rounded bg-blue-600 text-white text-s"
         >
-          Xuất Excel
+          Xuất lịch sử (Excel)
         </button>
         <button
           onClick={() => exportPdf(from, to)}
           className="px-3 py-2 rounded bg-red-600 text-white text-s"
         >
-          Xuất PDF
+          Xuất lịch sử (PDF)
+        </button>
+        <button
+          onClick={() => exportStatsExcel(from, to)}
+          className="px-3 py-2 rounded bg-teal-600 text-white text-s"
+        >
+          Xuất thống kê (Excel)
+        </button>
+        <button
+          onClick={() => exportStatsPdf(from, to)}
+          className="px-3 py-2 rounded bg-emerald-700 text-white text-s"
+        >
+          Xuất thống kê (PDF)
         </button>
       </div>
 
