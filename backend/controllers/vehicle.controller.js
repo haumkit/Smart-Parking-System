@@ -41,11 +41,35 @@ exports.listMy = async (req, res, next) => {
 exports.createMy = async (req, res, next) => {
   try {
     const { plateNumber } = req.body;
+    const normalizedPlate = plateNumber?.trim().toUpperCase();
+    if (!normalizedPlate) {
+      return res.status(400).json({ message: "Plate number is required" });
+    }
+
+    const existing = await Vehicle.findOne({ plateNumber: normalizedPlate });
+
+    if (existing && existing.ownerId) {
+      const isSameOwner = existing.ownerId.toString() === req.user.id;
+      return res.status(400).json({
+        message: isSameOwner
+          ? "Bạn đã đăng ký biển số này rồi."
+          : "Biển số này đã được đăng ký bởi người dùng khác.",
+      });
+    }
+
+    if (existing && !existing.ownerId) {
+      existing.ownerId = req.user.id;
+      existing.status = "pending";
+      existing.registeredTime = new Date();
+      await existing.save();
+      return res.status(201).json(existing);
+    }
+
     const vehicle = await Vehicle.create({
-      plateNumber,
+      plateNumber: normalizedPlate,
       ownerId: req.user.id,
       registeredTime: new Date(),
-      status: "pending", 
+      status: "pending",
     });
     res.status(201).json(vehicle);
   } catch (err) {

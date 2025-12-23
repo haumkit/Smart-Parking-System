@@ -219,10 +219,7 @@ export default function DashboardPage() {
       const feeText = result.hasMonthlyPass 
         ? '0 đ (Vé tháng)' 
         : new Intl.NumberFormat('vi-VN').format(result.fee) + ' đ'
-      showToast(
-        `Đã xác nhận xe ra: ${result.plateNumber} - Phí: ${feeText}`,
-        'success'
-      )
+      showToast(`Đã xác nhận xe ra: ${result.plateNumber} - Phí: ${feeText}`, 'success')
       setExitPlateManual('')
     } catch (err) {
       console.error('Lỗi xác nhận xe ra:', err)
@@ -263,7 +260,6 @@ export default function DashboardPage() {
     }
   }, [autoConfirmEntry, entryCamPlate?.plateNumber, lastConfirmedEntryPlate, entryConfirmLoading, handleConfirmEntry])
 
-  // Tự động xác nhận xe ra khi bật auto và có detection mới
   useEffect(() => {
     if (autoConfirmExit && exitCamPlate?.plateNumber && !exitConfirmLoading) {
       const plateToConfirm = exitCamPlate.plateNumber
@@ -389,13 +385,10 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-3">
-      {/* Simple Banner Notification */}
       {toast && (
         <div
-          className={`px-4 py-2 rounded text-sm font-medium ${
-            toast.type === 'success'
-              ? 'bg-green-100 text-green-800 border border-green-300'
-              : 'bg-red-100 text-red-800 border border-red-300'
+          className={`fixed top-4 right-4 text-xl px-6 py-4 rounded shadow-lg z-50 ${
+            toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
           }`}
         >
           {toast.message}

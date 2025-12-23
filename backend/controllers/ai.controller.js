@@ -1,4 +1,5 @@
 const { AI_SERVICE_URL, callAIService, callAIPlateFromCamera, callAISlotsFromCamera } = require("../services/ai.service");
+const parkingService = require("../services/parking.service");
 const axios = require("axios");
 
 // Plate SSE clients storage: { cameraId: Set<res> }

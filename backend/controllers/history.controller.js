@@ -164,13 +164,20 @@ exports.update = async (req, res, next) => {
   }
 };
 
-// Admin: xóa mềm bản ghi lịch sử
+// Admin: xóa mềm bản ghi lịch sử (chỉ cho phép xóa bản ghi đã hoàn thành)
 exports.remove = async (req, res, next) => {
   try {
     const { id } = req.params;
     const record = await ParkingRecord.findById(id);
     if (!record || record.isDeleted) {
-      return res.status(404).json({ message: "Record not found" });
+      return res.status(404).json({ message: "Bản ghi không tồn tại" });
+    }
+
+    // Chỉ cho phép xóa bản ghi đã hoàn thành (có exitTime)
+    if (!record.exitTime) {
+      return res.status(400).json({ 
+        message: "Không thể xóa bản ghi đang gửi xe. Vui lòng hoàn thành giao dịch trước." 
+      });
     }
 
     record.isDeleted = true;

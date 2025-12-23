@@ -27,6 +27,16 @@ export default function VehiclesPage() {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const searchTimeoutRef = useRef<number | null>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
+  
+  // Delete confirmation
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  
+  // Reject confirmation
+  const [rejectConfirmOpen, setRejectConfirmOpen] = useState(false)
+  const [vehicleToReject, setVehicleToReject] = useState<Vehicle | null>(null)
+  const [rejecting, setRejecting] = useState(false)
 
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
     setToast({ message, type })
@@ -144,15 +154,31 @@ export default function VehiclesPage() {
     setShowSuggestions(false)
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Xác nhận xóa phương tiện này?')) return
+  /* const handleDelete = (vehicle: Vehicle) => {
+    setVehicleToDelete(vehicle)
+    setDeleteConfirmOpen(true)
+  }
+ */
+  async function confirmDelete() {
+    if (!vehicleToDelete) return
+    
     try {
-      await deleteVehicle(id)
+      setDeleting(true)
+      await deleteVehicle(vehicleToDelete._id)
       showToast('Đã xóa phương tiện', 'success')
+      setDeleteConfirmOpen(false)
+      setVehicleToDelete(null)
       loadData()
     } catch {
       showToast('Lỗi xóa phương tiện', 'error')
+    } finally {
+      setDeleting(false)
     }
+  }
+
+  function cancelDelete() {
+    setDeleteConfirmOpen(false)
+    setVehicleToDelete(null)
   }
 
   const handleApprove = async (id: string) => {
@@ -165,15 +191,31 @@ export default function VehiclesPage() {
     }
   }
 
-  const handleReject = async (id: string) => {
-    if (!confirm('Xác nhận từ chối phương tiện này?')) return
+  const handleReject = (vehicle: Vehicle) => {
+    setVehicleToReject(vehicle)
+    setRejectConfirmOpen(true)
+  }
+
+  async function confirmReject() {
+    if (!vehicleToReject) return
+    
     try {
-      await rejectVehicle(id)
+      setRejecting(true)
+      await rejectVehicle(vehicleToReject._id)
       showToast('Đã từ chối phương tiện', 'success')
+      setRejectConfirmOpen(false)
+      setVehicleToReject(null)
       loadData()
     } catch {
       showToast('Lỗi từ chối phương tiện', 'error')
+    } finally {
+      setRejecting(false)
     }
+  }
+
+  function cancelReject() {
+    setRejectConfirmOpen(false)
+    setVehicleToReject(null)
   }
 
   const formatDate = (dateStr: string) => {
@@ -204,7 +246,7 @@ export default function VehiclesPage() {
     <div className="space-y-4">
       {toast && (
         <div
-          className={`fixed top-4 right-4 px-4 py-2 rounded shadow-lg z-50 ${
+          className={`fixed top-3 text-xl right-4 px-6 py-4 rounded shadow-lg z-50 ${
             toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
           }`}
         >
@@ -245,8 +287,8 @@ export default function VehiclesPage() {
 
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <h2 className="text-xl font-bold mb-4">
+          <div className="bg-white rounded-lg p-6 w-80 max-w-md">
+            <h2 className="text-2xl font-semibold mb-4">
               {editId ? 'Sửa phương tiện' : 'Thêm phương tiện'}
             </h2>
             <div className="space-y-4">
@@ -359,7 +401,7 @@ export default function VehiclesPage() {
                           Duyệt
                         </button>
                         <button
-                          onClick={() => handleReject(v._id)}
+                          onClick={() => handleReject(v)}
                           className="px-3 py-1 rounded bg-red-600 text-white text-s"
                         >
                           Từ chối
@@ -373,12 +415,12 @@ export default function VehiclesPage() {
                         >
                           Sửa
                         </button>
-                        <button
-                          onClick={() => handleDelete(v._id)}
+                        {/* <button
+                          onClick={() => handleDelete(v)}
                           className="px-3 py-1 rounded bg-red-600 text-white text-s"
                         >
                           Xóa
-                        </button>
+                        </button> */}
                       </>
                     )}
                   </td>
@@ -386,6 +428,100 @@ export default function VehiclesPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmOpen && vehicleToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-72 max-w-sm">
+            <h3 className="text-xl font-semibold mb-2">Xóa phương tiện</h3>
+            <div className="rounded p-3 mb-4 text-sm">
+              <div className="grid gap-3">
+                <div>
+                  <span className="font-medium">Biển số:</span>{' '}
+                  <span>{vehicleToDelete.plateNumber}</span>
+                </div>
+                <div>
+                  <span className="font-medium">Người đăng ký:</span>{' '}
+                  <span>
+                    {typeof vehicleToDelete.ownerId === 'object' && vehicleToDelete.ownerId
+                      ? vehicleToDelete.ownerId.name || vehicleToDelete.ownerId.email || 'N/A'
+                      : 'N/A'}
+                  </span>
+                </div>
+                <div>
+                  <span className="font-medium">Ngày đăng ký:</span>{' '}
+                  <span>{formatDate(vehicleToDelete.registeredTime || vehicleToDelete.createdAt)}</span>
+                </div>
+                <div>
+                  <span className="font-medium">Trạng thái:</span>{' '}
+                  {getStatusBadge(vehicleToDelete.status)}
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={cancelDelete}
+                disabled={deleting}
+                className="px-10 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="px-10 py-2 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleting ? 'Đang xóa...' : 'Xóa'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Confirmation Modal */}
+      {rejectConfirmOpen && vehicleToReject && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-72 max-w-sm">
+            <h3 className="text-lg font-semibold mb-2">Bạn có chắc chắn muốn từ chối phương tiện này không?</h3>
+            <div className="rounded p-3 mb-4 text-sm">
+              <div className="grid gap-3">
+                <div>
+                  <span className="font-medium">Biển số:</span>{' '}
+                  <span>{vehicleToReject.plateNumber}</span>
+                </div>
+                <div>
+                  <span className="font-medium">Người đăng ký:</span>{' '}
+                  <span>
+                    {typeof vehicleToReject.ownerId === 'object' && vehicleToReject.ownerId
+                      ? vehicleToReject.ownerId.name || vehicleToReject.ownerId.email || 'N/A'
+                      : 'N/A'}
+                  </span>
+                </div>
+                <div>
+                  <span className="font-medium">Ngày đăng ký:</span>{' '}
+                  <span>{formatDate(vehicleToReject.registeredTime || vehicleToReject.createdAt)}</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={cancelReject}
+                disabled={rejecting}
+                className="px-10 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={confirmReject}
+                disabled={rejecting}
+                className="px-10 py-2 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {rejecting ? 'Đang từ chối...' : 'Từ chối'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

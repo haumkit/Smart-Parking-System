@@ -21,11 +21,11 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 MAX_FILE_SIZE = 10 * 1024 * 1024
 
 WPOD_MODEL_PATH = os.getenv("WPOD_MODEL_PATH", "models/wpod-net")
-OCR_MODEL_PATH = os.getenv("OCR_MODEL_PATH", "models/last-dataset-update.h5")
+OCR_MODEL_PATH = os.getenv("OCR_MODEL_PATH", "models/last-dataset-update.h5") #models/last-dataset-update.h5
 SLOT_MODEL_PATH = os.getenv("SLOT_MODEL_PATH", os.getenv("SLOT_YOLO_MODEL_PATH", "models/slots_model.pt"))
 PROCESSED_DIR = os.getenv("SLOT_PROCESSED_DIR", os.path.join(UPLOAD_FOLDER, "processed"))
 TOTAL_PARKING_SLOTS = int(os.getenv("TOTAL_PARKING_SLOTS", "15"))
-SLOT_DETECTION_INTERVAL = float(os.getenv("SLOT_DETECTION_INTERVAL", "15"))
+SLOT_DETECTION_INTERVAL = float(os.getenv("SLOT_DETECTION_INTERVAL", "30"))
 SLOT_DETECTION_CAMERAS = [
     cam.strip() for cam in os.getenv("SLOT_DETECTION_CAMERAS", "parking").split(",") if cam.strip()
 ]
@@ -94,7 +94,7 @@ def start_camera_manager():
                         camera_manager=camera_manager,
                         plate_detector=plate_detector,
                         webhook_url=BACKEND_WEBHOOK_URL,
-                        motion_threshold_percent=0.05,
+                        motion_threshold_percent=0.1,
                         ocr_delay=1.0,
                         stable_delay=0.3,
                         check_interval=0.5,
@@ -466,18 +466,15 @@ def detect_slots_from_camera(camera_id):
             }), 503
 
         if slot_detector is None:
-            # Fallback stub
+            # Fallback stub - return empty slots to avoid creating fake slots in DB
             return jsonify({
                 "success": True,
                 "data": {
-                    "slots": [
-                        {"code": "1", "status": "available", "confidence": 0.95},
-                        {"code": "2", "status": "occupied", "confidence": 0.98},
-                    ],
-                    "totalSlots": 2,
-                    "freeSlots": 1,
-                    "occupiedSlots": 1,
-                    "detectedCars": 1,
+                    "slots": [],
+                    "totalSlots": 0,
+                    "freeSlots": 0,
+                    "occupiedSlots": 0,
+                    "detectedCars": 0,
                 }
             })
 
@@ -600,19 +597,15 @@ def detect_slots():
                 import traceback
                 traceback.print_exc()
         
+
         result = {
             "success": True,
             "data": {
-                "slots": [
-                    {"code": "A1", "status": "available", "confidence": 0.95},
-                    {"code": "A2", "status": "occupied", "confidence": 0.98},
-                    {"code": "A3", "status": "available", "confidence": 0.92},
-                    {"code": "B1", "status": "occupied", "confidence": 0.96},
-                ],
+                "slots": [],
                 "processedImageUrl": None,
-                "totalSlots": 4,
-                "freeSlots": 2,
-                "occupiedSlots": 2,
+                "totalSlots": 0,
+                "freeSlots": 0,
+                "occupiedSlots": 0,
             }
         }
 

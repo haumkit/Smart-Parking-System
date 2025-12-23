@@ -306,12 +306,12 @@ def find_and_sort_contours(mask, LpImg):
     # 3. LỌC DỰA TRÊN KÍCH THƯỚC VÀ TỶ LỆ
     FINAL_BOXES = []
 
-    MIN_CHAR_HEIGHT_RATIO = 0.5   # Chiều cao tối thiểu của ký tự so với avg_height (giảm để bắt các ký tự hơi nhỏ)
+    MIN_CHAR_HEIGHT_RATIO = 0.8   # Chiều cao tối thiểu của ký tự so với avg_height (giảm để bắt các ký tự hơi nhỏ)
     MAX_CHAR_HEIGHT_RATIO = 1.3  # Chiều cao tối đa của ký tự (loại bỏ các BB quá cao, ví dụ: dính với nhiễu trên)
     MIN_ASPECT_RATIO = 0.2        # Tỷ lệ W/H tối thiểu (loại bỏ các BB quá mảnh)
-    MAX_ASPECT_RATIO = 1.0        # Tỷ lệ W/H tối đa (loại bỏ các BB quá rộng như gạch ngang, dấu chấm)
+    MAX_ASPECT_RATIO = 0.9        # Tỷ lệ W/H tối đa (loại bỏ các BB quá rộng như gạch ngang, dấu chấm)
     MIN_AREA_RATIO = 0.3          # Diện tích phải > 30% trung bình
-    MAX_AREA_RATIO = 1.6          # Diện tích phải < 160% trung bình (loại bỏ vùng dính)
+    MAX_AREA_RATIO = 1.5          # Diện tích phải < 160% trung bình (loại bỏ vùng dính)
 
     for x, y, w, h in filtered_boxes:
         aspect_ratio = w / h
@@ -326,7 +326,7 @@ def find_and_sort_contours(mask, LpImg):
             
         # C. Lọc theo Chiều rộng tối đa (loại bỏ các vùng dính lớn bất thường)
         # Nếu một BB có chiều rộng quá lớn so với chiều cao (ký tự)
-        if w > median_height * 1.1: # Chiều rộng không nên lớn hơn 1.2 lần chiều cao ký tự trung bình
+        if w > median_height * 1.1: 
              continue
         # D. Lọc theo Vị trí (Biên trái/phải 5%)
         center_x = x + w / 2
@@ -355,7 +355,33 @@ def preprocess_license_plate(image):
     enhanced_gray = clahe.apply(gray)
     blurred = cv2.GaussianBlur(enhanced_gray, (5, 5), 0)
     thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 45, 15)
+
     return thresh
+
+def normalize_plate(plate_text):
+    if not plate_text:
+        return plate_text
+    
+    normalized = list(plate_text.upper())
+    
+    digit_positions = [0, 1]
+    if len(normalized) == 7:
+        digit_positions.extend(range(3, 7))
+    elif len(normalized) >= 8:
+        digit_positions.extend(range(3, 8))
+
+    if normalized[2] == '0':
+        normalized[2] = 'D'
+    elif normalized[2] == '8':
+        normalized[2] = 'B'
+    for pos in digit_positions:
+        if pos < len(normalized):
+            if normalized[pos] == 'D':
+                normalized[pos] = '0'
+            elif normalized[pos] == 'B':
+                normalized[pos] = '8'
+
+    return ''.join(normalized)
 
 def encode_image_to_base64(image_array, ext=".jpg"):
     if image_array is None:
@@ -441,6 +467,10 @@ class LicensePlateDetector:
                     confidences.append(0.0)
 
             plate_number = ''.join(predictions)
+            
+            # Normalize common OCR mistakes: D->0, B->8
+            plate_number = normalize_plate(plate_number)
+            
             avg_confidence = np.mean(confidences) if confidences else 0.5
 
             return {

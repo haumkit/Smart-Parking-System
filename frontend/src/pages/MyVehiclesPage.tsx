@@ -49,8 +49,19 @@ export default function MyVehiclesPage() {
       setShowForm(false)
       setPlateNumber('')
       loadData()
-    } catch {
-      showToast('Lỗi đăng ký phương tiện', 'error')
+    } catch (err) {
+      let errorMsg = 'Lỗi đăng ký phương tiện'
+      if (err instanceof Error) {
+        try {
+          const parsed = JSON.parse(err.message)
+          if (parsed?.message) {
+            errorMsg = parsed.message
+          }
+        } catch {
+          errorMsg = err.message
+        }
+      }
+      showToast(errorMsg, 'error')
     }
   }
 
@@ -83,7 +94,7 @@ export default function MyVehiclesPage() {
     <div className="space-y-4">
       {toast && (
         <div
-          className={`fixed top-4 right-4 px-4 py-2 rounded shadow-lg z-50 ${
+          className={`fixed top-4 text-xl right-4 px-6 py-4 rounded shadow-lg z-50 ${
             toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
           }`}
         >

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { loadStats, exportExcel, exportPdf, exportStatsExcel, exportStatsPdf } from '../services/reports'
+import { loadStats, exportExcel, exportStatsExcel } from '../services/reports'
 
 interface StatItem {
   _id: {
@@ -93,25 +93,13 @@ export default function ReportsPage() {
           onClick={() => exportExcel(from, to)}
           className="px-3 py-2 rounded bg-blue-600 text-white text-s"
         >
-          Xuất lịch sử (Excel)
-        </button>
-        <button
-          onClick={() => exportPdf(from, to)}
-          className="px-3 py-2 rounded bg-red-600 text-white text-s"
-        >
-          Xuất lịch sử (PDF)
+          Xuất lịch sử
         </button>
         <button
           onClick={() => exportStatsExcel(from, to)}
           className="px-3 py-2 rounded bg-teal-600 text-white text-s"
         >
-          Xuất thống kê (Excel)
-        </button>
-        <button
-          onClick={() => exportStatsPdf(from, to)}
-          className="px-3 py-2 rounded bg-emerald-700 text-white text-s"
-        >
-          Xuất thống kê (PDF)
+          Xuất thống kê
         </button>
       </div>
 

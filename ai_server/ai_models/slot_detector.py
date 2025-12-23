@@ -153,10 +153,14 @@ class ParkingSlotDetector:
                     if confidence >= 0.6 and (cls_id == self.car_class_id or cls_id == self.empty_class_id):
                         all_boxes.append((x1, y1, x2, y2, confidence, cls_id))
 
+                # Lấy tối đa 15 box có confidence cao nhất để giảm nhiễu
+                all_boxes.sort(key=lambda b: b[4], reverse=True)
+                top_boxes = all_boxes[:15]
+
                 occupied_boxes: List[Tuple[int, int, int, int, float]] = []
                 empty_boxes: List[Tuple[int, int, int, int, float]] = []
 
-                for (x1, y1, x2, y2, conf, cls_id) in all_boxes:
+                for (x1, y1, x2, y2, conf, cls_id) in top_boxes:
                     if cls_id == self.car_class_id:
                         occupied_boxes.append((x1, y1, x2, y2, conf))
                     elif cls_id == self.empty_class_id:
@@ -166,7 +170,7 @@ class ParkingSlotDetector:
                 assigned_slots = None
 
                 try:
-                    yolo_results = all_boxes
+                    yolo_results = top_boxes
                     boxes_xy = []
 
                     for (x1, y1, x2, y2, conf_f, cls_id) in yolo_results:

@@ -6,15 +6,15 @@ Werkzeug>=3.0.1
 
 # AI/ML libraries
 opencv-python>=4.12.0
-Pillow==11.3.0
-numpy==2.0.2
-scikit-image==0.25.2
-scipy==1.16.3
+Pillow>=11.3.0
+numpy>=2.0.2
+scikit-image>=0.25.2
+scipy>=1.16.3
 ultralytics>=8.2.0
 pandas>=2.2.0
 scikit-learn
 
 # Optional utilities
-python-dotenv==1.0.0
+python-dotenv>=1.0.0
 requests>=2.31.0
 

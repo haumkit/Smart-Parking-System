@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import {
   listHistory,
   type ParkingRecord,
@@ -28,7 +28,16 @@ export default function HistoryPage() {
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [status, setStatus] = useState<'all' | 'completed' | 'pending'>('all')
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [recordToDelete, setRecordToDelete] = useState<ParkingRecord | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const role = localStorage.getItem('role') || 'user'
+
+  const showToast = useCallback((message: string, type: 'success' | 'error') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 3000)
+  }, [])
 
   useEffect(() => {
     const end = new Date()
@@ -80,9 +89,10 @@ export default function HistoryPage() {
   async function handleExportHistory() {
     try {
       await exportExcel(fromDate || undefined, toDate || undefined)
+      showToast('Đã xuất lịch sử thành công', 'success')
     } catch (err) {
       console.error('Export history error:', err)
-      alert('Không thể xuất lịch sử. Vui lòng thử lại.')
+      showToast('Không thể xuất lịch sử. Vui lòng thử lại.', 'error')
     }
   }
 
@@ -128,7 +138,7 @@ export default function HistoryPage() {
   function handleOpenEdit(record: ParkingRecord) {
     setEditingRecord(record)
     setForm({
-      plateNumber: record.vehicleId.plateNumber,
+      plateNumber: record.vehicleId?.plateNumber || '',
       entryTime: toInputDateTime(record.entryTime),
       exitTime: toInputDateTime(record.exitTime),
       fee: String(record.fee ?? 0),
@@ -164,8 +174,10 @@ export default function HistoryPage() {
 
       if (editingRecord) {
         await updateHistory(editingRecord._id, payload)
+        showToast('Đã cập nhật lịch sử thành công', 'success')
       } else {
         await createHistory(payload)
+        showToast('Đã thêm lịch sử thành công', 'success')
       }
 
       await loadHistory(searchPlate || undefined)
@@ -173,21 +185,41 @@ export default function HistoryPage() {
       setEditingRecord(null)
     } catch (err) {
       console.error('Save history error:', err)
-      setModalError('Không thể lưu lịch sử. Vui lòng thử lại.')
+      const errorMsg = err instanceof Error ? err.message : 'Không thể lưu lịch sử. Vui lòng thử lại.'
+      setModalError(errorMsg)
+      showToast(errorMsg, 'error')
     } finally {
       setModalSaving(false)
     }
   }
 
-  async function handleDelete(record: ParkingRecord) {
-    if (!window.confirm('Bạn có chắc muốn xóa bản ghi này không?')) return
+  function handleDelete(record: ParkingRecord) {
+    setRecordToDelete(record)
+    setDeleteConfirmOpen(true)
+  }
+
+  async function confirmDelete() {
+    if (!recordToDelete) return
+    
     try {
-      await deleteHistory(record._id)
-      setRecords((prev) => prev.filter((r) => r._id !== record._id))
+      setDeleting(true)
+      await deleteHistory(recordToDelete._id)
+      setRecords((prev) => prev.filter((r) => r._id !== recordToDelete._id))
+      setDeleteConfirmOpen(false)
+      setRecordToDelete(null)
+      showToast('Đã xóa bản ghi lịch sử thành công', 'success')
     } catch (err) {
       console.error('Delete history error:', err)
-      alert('Không thể xóa bản ghi. Vui lòng thử lại.')
+      const errorMsg = err instanceof Error ? err.message : 'Không thể xóa bản ghi. Vui lòng thử lại.'
+      showToast(errorMsg, 'error')
+    } finally {
+      setDeleting(false)
     }
+  }
+
+  function cancelDelete() {
+    setDeleteConfirmOpen(false)
+    setRecordToDelete(null)
   }
 
   if (loading) {
@@ -196,7 +228,15 @@ export default function HistoryPage() {
 
   return (
     <div className="space-y-4">
-
+      {toast && (
+        <div
+          className={`fixed top-4 right-4 text-xl px-6 py-4 rounded shadow-lg z-50 ${
+            toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
       
       {modalOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-20">
@@ -346,12 +386,12 @@ export default function HistoryPage() {
           Xóa lọc
         </button>
         { role === 'admin' && (
-        <button
-          onClick={handleExportHistory}
-          className="px-4 py-2 rounded bg-blue-600 text-white"
-        >
-          Xuất lịch sử (Excel)
-        </button>
+          <button
+            onClick={handleExportHistory}
+            className="px-4 py-2 rounded bg-blue-600 text-white"
+          >
+            Xuất lịch sử
+          </button>
         )}
         {/* {role === 'admin' && (
           <button onClick={handleOpenAdd} className="px-4 py-2 rounded bg-green-600 text-white">
@@ -392,7 +432,7 @@ export default function HistoryPage() {
             <tbody>
               {records.map((record) => (
                 <tr key={record._id} className="border-b hover:bg-gray-50">
-                  <td className="p-3 text-center">{record.vehicleId.plateNumber}</td>
+                  <td className="p-3 text-center">{record.vehicleId?.plateNumber || 'N/A'}</td>
                   <td className="p-3 text-center">{formatDate(record.entryTime)}</td>
                   <td className="p-3 text-center">{formatDate(record.exitTime)}</td>
                   <td className="p-3 text-center">
@@ -412,25 +452,68 @@ export default function HistoryPage() {
                   </td>
                   {role === 'admin' && (
                     <td className="p-2 text-center">
-                      
-                      {/* <button
-                        onClick={() => handleOpenEdit(record)}
-                        className="px-3 py-1 mr-2 rounded bg-green-600 text-white text-s"
-                      >
-                        Sửa
-                      </button> */}
-                      <button
-                        onClick={() => handleDelete(record)}
-                        className="px-3 py-1 rounded bg-red-600 text-white text-s"
-                      >
-                        Xóa
-                      </button>
+                      {record.exitTime ? (
+                        <button
+                          onClick={() => handleDelete(record)}
+                          className="px-3 py-1 rounded bg-red-600 text-white text-s"
+                        >
+                          Xóa
+                        </button>
+                      ) : (
+                        <span className="text-s text-gray-400">Không thể xóa</span>
+                      )}
                     </td>
                   )}
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {deleteConfirmOpen && recordToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-80 max-w-md">
+            <h3 className="text-xl font-semibold mb-2">Xóa bản ghi lịch sử</h3>
+            <div className="rounded p-3 mb-4 text-sm">
+              <div className="grid gap-3">
+                <div>
+                  <span className="font-medium">Biển số:</span>{' '}
+                  <span>{recordToDelete.vehicleId?.plateNumber || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="font-medium">Vào lúc:</span>{' '}
+                  <span>{formatDate(recordToDelete.entryTime)}</span>
+                </div>
+                {recordToDelete.exitTime && (
+                  <div>
+                    <span className="font-medium">Ra lúc:</span>{' '}
+                    <span>{formatDate(recordToDelete.exitTime)}</span>
+                  </div>
+                )}
+                <div>
+                  <span className="font-medium">Phí:</span>{' '}
+                  <span>{formatCurrency(recordToDelete.fee)}</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={cancelDelete}
+                disabled={deleting}
+                className="px-10 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="px-10 py-2 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleting ? 'Đang xóa...' : 'Xóa'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

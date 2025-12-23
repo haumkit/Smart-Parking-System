@@ -28,26 +28,10 @@ export async function exportExcel(from?: string, to?: string) {
   return downloadFile(url, 'parking_report.xlsx')
 }
 
-export async function exportPdf(from?: string, to?: string) {
-  const params = new URLSearchParams()
-  if (from) params.set('from', from)
-  if (to) params.set('to', to)
-  const url = `${API_BASE}/reports/export/pdf?${params.toString()}`
-  return downloadFile(url, 'parking_report.pdf')
-}
-
 export async function exportStatsExcel(from?: string, to?: string) {
   const params = new URLSearchParams()
   if (from) params.set('from', from)
   if (to) params.set('to', to)
   const url = `${API_BASE}/reports/export/stats/excel?${params.toString()}`
   return downloadFile(url, 'parking_stats.xlsx')
-}
-
-export async function exportStatsPdf(from?: string, to?: string) {
-  const params = new URLSearchParams()
-  if (from) params.set('from', from)
-  if (to) params.set('to', to)
-  const url = `${API_BASE}/reports/export/stats/pdf?${params.toString()}`
-  return downloadFile(url, 'parking_stats.pdf')
 }

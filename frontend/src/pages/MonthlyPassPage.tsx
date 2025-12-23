@@ -21,6 +21,12 @@ export default function MonthlyPassPage() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [selectedVehicleId, setSelectedVehicleId] = useState('')
   const [months, setMonths] = useState(1)
+  
+  // Extend modal
+  const [showExtendModal, setShowExtendModal] = useState(false)
+  const [passToExtend, setPassToExtend] = useState<MonthlyPass | null>(null)
+  const [extendMonths, setExtendMonths] = useState(1)
+  const [extending, setExtending] = useState(false)
 
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
     setToast({ message, type })
@@ -67,16 +73,37 @@ export default function MonthlyPassPage() {
     }
   }
 
-  const handleExtend = async (id: string) => {
-    const m = prompt('Số tháng gia hạn:', '1')
-    if (!m) return
+  const handleExtend = (pass: MonthlyPass) => {
+    setPassToExtend(pass)
+    setExtendMonths(1)
+    setShowExtendModal(true)
+  }
+
+  async function confirmExtend() {
+    if (!passToExtend || extendMonths < 1) {
+      showToast('Vui lòng nhập số tháng hợp lệ', 'error')
+      return
+    }
+    
     try {
-      await extendPass(id, parseInt(m))
+      setExtending(true)
+      await extendPass(passToExtend._id, extendMonths)
       showToast('Đã gia hạn vé tháng', 'success')
+      setShowExtendModal(false)
+      setPassToExtend(null)
+      setExtendMonths(1)
       loadData()
     } catch {
       showToast('Lỗi gia hạn vé', 'error')
+    } finally {
+      setExtending(false)
     }
+  }
+
+  function cancelExtend() {
+    setShowExtendModal(false)
+    setPassToExtend(null)
+    setExtendMonths(1)
   }
 
   const handleAddManual = async () => {
@@ -272,7 +299,7 @@ export default function MonthlyPassPage() {
                     )}
                     {pass.status === 'approved' && (
                       <button
-                        onClick={() => handleExtend(pass._id)}
+                        onClick={() => handleExtend(pass)}
                         className="px-3 py-1 rounded bg-blue-600 text-white text-s"
                       >
                         Gia hạn
@@ -283,6 +310,71 @@ export default function MonthlyPassPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Extend Modal */}
+      {showExtendModal && passToExtend && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-5 w-80 max-w-md">
+            <h3 className="text-2xl font-semibold ">Gia hạn vé tháng</h3>
+            <div className="rounded p-3 text-s ">
+              <div className="grid gap-2">
+                <div>
+                  <span className="font-medium">Biển số:</span>{' '}
+                  <span>{passToExtend.vehicleId?.plateNumber || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="font-medium">Người đăng ký:</span>{' '}
+                  <span>{passToExtend.userId?.name || passToExtend.userId?.email || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="font-medium">Ngày kết thúc hiện tại:</span>{' '}
+                  <span>{formatDate(passToExtend.endDate)}</span>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium mb-1">Số tháng gia hạn</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={extendMonths}
+                  onChange={(e) => setExtendMonths(parseInt(e.target.value) || 1)}
+                  className="w-full border rounded px-3 py-2 text-sm"
+                  placeholder="Nhập số tháng"
+                />
+              </div>
+              <div className="text-sm text-gray-600  rounded">
+                <div>Giá gia hạn: {formatPrice(500000 * extendMonths)}</div>
+                <div className="mt-1">
+                  Ngày kết thúc mới: {(() => {
+                    const currentEnd = new Date(passToExtend.endDate)
+                    const newEnd = new Date(currentEnd)
+                    newEnd.setMonth(newEnd.getMonth() + extendMonths)
+                    return newEnd.toLocaleDateString('vi-VN')
+                  })()}
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={cancelExtend}
+                disabled={extending}
+                className="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={confirmExtend}
+                disabled={extending || extendMonths < 1}
+                className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {extending ? 'Đang gia hạn...' : 'Gia hạn'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -12,7 +12,7 @@ class MotionDetector:
         camera_manager,
         plate_detector,
         webhook_url: str,
-        motion_threshold_percent: float = 0.05,
+        motion_threshold_percent: float = 0.1,
         ocr_delay: float = 2.0,
         stable_delay: float = 0.5,
         check_interval: float = 0.2,
