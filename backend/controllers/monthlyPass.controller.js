@@ -62,7 +62,7 @@ exports.requestPass = async (req, res, next) => {
     endDate.setMonth(endDate.getMonth() + months);
 
     // Giá vé tháng (có thể config)
-    const pricePerMonth = 500000; // 500k/tháng
+    const pricePerMonth = 1000000; // 1000k/tháng
     const price = pricePerMonth * months;
 
     const pass = await MonthlyPass.create({
@@ -163,7 +163,7 @@ exports.createManual = async (req, res, next) => {
     const endDate = new Date();
     endDate.setMonth(endDate.getMonth() + months);
 
-    const pricePerMonth = 500000;
+    const pricePerMonth = 1000000;
     const price = pricePerMonth * months;
 
     const pass = await MonthlyPass.create({
@@ -200,7 +200,7 @@ exports.extend = async (req, res, next) => {
     const newEnd = new Date(newStart);
     newEnd.setMonth(newEnd.getMonth() + months);
 
-    const pricePerMonth = 500000;
+    const pricePerMonth = 1000000;
     const additionalPrice = pricePerMonth * months;
 
     pass.endDate = newEnd;

@@ -23,7 +23,7 @@ export default function LoginPage() {
       
       navigate(data.user.role === 'admin' ? '/dashboard' : '/parking-status')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
+      setError(err instanceof Error ? err.message : 'Đăng nhập thất bại')
     } finally {
       setLoading(false)
     }

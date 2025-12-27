@@ -38,6 +38,9 @@ export default function VehiclesPage() {
   const [vehicleToReject, setVehicleToReject] = useState<Vehicle | null>(null)
   const [rejecting, setRejecting] = useState(false)
 
+  const isValidPlate = useCallback((plate: string) => {
+    return /^[1-9][0-9][A-HK-NP-TVXYZ][0-9]{4,5}$/.test(plate.toUpperCase())
+  }, [])
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
     setToast({ message, type })
     setTimeout(() => setToast(null), 3000)
@@ -104,6 +107,10 @@ export default function VehiclesPage() {
   const handleSubmit = async () => {
     if (!plateNumber.trim()) {
       showToast('Vui lòng nhập biển số', 'error')
+      return
+    }
+    if(!isValidPlate(plateNumber)){
+      showToast('Biển số không hợp lệ', 'error')
       return
     }
     try {
@@ -516,7 +523,7 @@ export default function VehiclesPage() {
               <button
                 onClick={confirmReject}
                 disabled={rejecting}
-                className="px-10 py-2 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                className="px-8 py-2 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
               >
                 {rejecting ? 'Đang từ chối...' : 'Từ chối'}
               </button>

@@ -1,11 +1,35 @@
 const Vehicle = require("../models/Vehicle");
 const ParkingRecord = require("../models/ParkingRecord");
+const ParkingSlot = require("../models/ParkingSlot");
 const MonthlyPass = require("../models/MonthlyPass");
 const { callAIService } = require("./ai.service");
 
-let HOURLY_RATE = parseFloat(process.env.PARKING_HOURLY_RATE) || 5000;
+let FIRST_HOUR_RATE = parseFloat(process.env.PARKING_FIRST_HOUR_RATE) || 20000;
+let SUBSEQUENT_HOUR_RATE = parseFloat(process.env.PARKING_SUBSEQUENT_HOUR_RATE) || 5000;
+let HOURLY_RATE = SUBSEQUENT_HOUR_RATE;
+const FREE_DURATION_MINUTES = parseFloat(process.env.PARKING_FREE_DURATION_MINUTES) || 15;
 
-// Kiểm tra xe có vé tháng còn hạn không
+async function assertFreeSlotAvailable() {
+  const now = Date.now();
+  const pendingWindowMs = 15 * 60 * 1000;
+  const pendingSince = new Date(now - pendingWindowMs);
+
+  const [availableSlots, pendingEntries] = await Promise.all([
+    ParkingSlot.countDocuments({ status: "available" }),
+    ParkingRecord.countDocuments({ exitTime: null, slotId: null, entryTime: { $gte: pendingSince } }),
+  ]);
+
+  if (availableSlots <= 0) {
+    throw new Error("Bãi đã đầy, vui lòng chờ xe khác ra.");
+  }
+
+  const effectiveFree = availableSlots - pendingEntries;
+  if (effectiveFree <= 0) {
+    throw new Error("Bãi đã đầy, vui lòng chờ xe khác ra.");
+  }
+  return effectiveFree;
+}
+
 async function checkValidMonthlyPass(vehicleId) {
   const now = new Date();
   const pass = await MonthlyPass.findOne({
@@ -24,13 +48,27 @@ function formatVietnamTime(date) {
 }
 
 function calculateFee(entryTime, exitTime, hourlyRate) {
-  // Nếu không có hourlyRate, dùng giá hiện tại (fallback cho record cũ)
-  const rate = hourlyRate || HOURLY_RATE;
+  const rate = hourlyRate != null ? hourlyRate : HOURLY_RATE;
   const durationMs = exitTime.getTime() - entryTime.getTime();
   const durationMinutes = Math.floor(durationMs / (1000 * 60));
   const durationHours = Math.ceil(durationMinutes / 60);
-  const billableHours = Math.max(1, durationHours);
-  const fee = billableHours * rate;
+  
+  if (durationMinutes < FREE_DURATION_MINUTES) {
+    return {
+      durationHours: 0,
+      durationMinutes,
+      fee: 0,
+    };
+  }
+  
+  let fee = 0;
+  if (durationHours <= 1) {
+    // ≤ 1 giờ: chỉ tính giờ đầu
+    fee = FIRST_HOUR_RATE;
+  } else {
+    // > 1 giờ: giờ đầu + các giờ tiếp theo
+    fee = FIRST_HOUR_RATE + (durationHours - 1) * rate;
+  }
 
   return {
     durationHours,
@@ -45,6 +83,7 @@ function calculateFee(entryTime, exitTime, hourlyRate) {
  * @returns {Promise<{plateNumber: string, vehicleId: string, registeredTime: Date, confidence?: number}>}
  */
 async function walkInEntry(imagePath) {
+  await assertFreeSlotAvailable();
   const aiResult = await callAIService("plate", imagePath);
   
   if (!aiResult.success || !aiResult.data?.plateNumber) {
@@ -171,6 +210,7 @@ async function walkInEntryByPlate(plateNumber) {
     throw new Error("Biển số là bắt buộc");
   }
 
+  await assertFreeSlotAvailable();
   const normalizedPlate = plateNumber.trim().toUpperCase();
   const entryTime = new Date();
 
@@ -204,7 +244,7 @@ async function walkInEntryByPlate(plateNumber) {
     entryTime: entryTime,
     exitTime: null,
     fee: 0,
-    hourlyRate: HOURLY_RATE,
+    hourlyRate: HOURLY_RATE, // Lưu giá các giờ tiếp theo (sẽ hiển thị trong lịch sử)
     hasMonthlyPass,
     slotId: null,
   });
@@ -253,9 +293,9 @@ async function walkInExitByPlate(plateNumber) {
   let feeCalculation = { durationHours: 0, durationMinutes: 0, fee: 0 };
   
   if (!record.hasMonthlyPass) {
-    // Nếu record không có hourlyRate (record cũ), dùng giá hiện tại
-    const hourlyRateToUse = record.hourlyRate || HOURLY_RATE;
-    feeCalculation = calculateFee(record.entryTime, exitTime, hourlyRateToUse);
+    // Nếu record.hourlyRate = null → dùng mô hình mới (20k giờ đầu, 5k giờ tiếp theo)
+    // Nếu record.hourlyRate có giá trị → dùng mô hình cũ (giá cố định/giờ) để tương thích
+    feeCalculation = calculateFee(record.entryTime, exitTime, record.hourlyRate);
     fee = feeCalculation.fee;
   } else {
     // Vẫn tính thời gian để hiển thị
@@ -286,7 +326,9 @@ function getHourlyRate() {
 
 function setHourlyRate(rate) {
   if (rate < 0) throw new Error("Rate must be non-negative");
+  // Cập nhật cả HOURLY_RATE và SUBSEQUENT_HOUR_RATE để logic tính phí mới hoạt động đúng
   HOURLY_RATE = rate;
+  SUBSEQUENT_HOUR_RATE = rate;
   return HOURLY_RATE;
 }
 

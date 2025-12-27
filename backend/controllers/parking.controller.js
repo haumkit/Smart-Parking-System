@@ -153,7 +153,10 @@ exports.walkInEntry = async (req, res, next) => {
     console.error("Walk-in entry error:", err);
     
     // Handle specific error types
-    if (err.message.includes("Plate not detected")) {
+    if (err.message.includes("Bãi đã đầy")) {
+      return res.status(409).json({ success: false, message: err.message });
+    }
+    if (err.message.includes("Không tìm thấy biển số từ ảnh")) {
       return res.status(422).json({ success: false, message: err.message });
     }
     if (err.message.includes("already in parking")) {
@@ -216,6 +219,9 @@ exports.confirmEntryByPlate = async (req, res, next) => {
   } catch (err) {
     console.error("Confirm entry by plate error:", err);
     
+    if (err.message.includes("Bãi đã đầy")) {
+      return res.status(409).json({ success: false, message: err.message });
+    }
     if (err.message.includes("already in parking")) {
       return res.status(409).json({ success: false, message: err.message });
     }

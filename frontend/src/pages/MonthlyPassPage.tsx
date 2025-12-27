@@ -28,6 +28,15 @@ export default function MonthlyPassPage() {
   const [extendMonths, setExtendMonths] = useState(1)
   const [extending, setExtending] = useState(false)
 
+  // Approve/Reject confirmation modals
+  const [approveConfirmOpen, setApproveConfirmOpen] = useState(false)
+  const [passToApprove, setPassToApprove] = useState<MonthlyPass | null>(null)
+  const [approving, setApproving] = useState(false)
+  
+  const [rejectConfirmOpen, setRejectConfirmOpen] = useState(false)
+  const [passToReject, setPassToReject] = useState<MonthlyPass | null>(null)
+  const [rejecting, setRejecting] = useState(false)
+
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
     setToast({ message, type })
     setTimeout(() => setToast(null), 3000)
@@ -53,24 +62,58 @@ export default function MonthlyPassPage() {
     loadData()
   }, [loadData])
 
-  const handleApprove = async (id: string) => {
+  const handleApprove = (pass: MonthlyPass) => {
+    setPassToApprove(pass)
+    setApproveConfirmOpen(true)
+  }
+
+  async function confirmApprove() {
+    if (!passToApprove) return
+    
     try {
-      await approvePass(id)
+      setApproving(true)
+      await approvePass(passToApprove._id)
       showToast('Đã duyệt vé tháng', 'success')
+      setApproveConfirmOpen(false)
+      setPassToApprove(null)
       loadData()
     } catch {
       showToast('Lỗi duyệt vé', 'error')
+    } finally {
+      setApproving(false)
     }
   }
 
-  const handleReject = async (id: string) => {
+  function cancelApprove() {
+    setApproveConfirmOpen(false)
+    setPassToApprove(null)
+  }
+
+  const handleReject = (pass: MonthlyPass) => {
+    setPassToReject(pass)
+    setRejectConfirmOpen(true)
+  }
+
+  async function confirmReject() {
+    if (!passToReject) return
+    
     try {
-      await rejectPass(id)
+      setRejecting(true)
+      await rejectPass(passToReject._id)
       showToast('Đã từ chối vé tháng', 'success')
+      setRejectConfirmOpen(false)
+      setPassToReject(null)
       loadData()
     } catch {
       showToast('Lỗi từ chối vé', 'error')
+    } finally {
+      setRejecting(false)
     }
+  }
+
+  function cancelReject() {
+    setRejectConfirmOpen(false)
+    setPassToReject(null)
   }
 
   const handleExtend = (pass: MonthlyPass) => {
@@ -196,7 +239,7 @@ export default function MonthlyPassPage() {
 
       {showAddForm && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-20">
-          <div className="bg-white rounded shadow-lg w-full max-w-md p-4">
+          <div className="bg-white rounded shadow-lg w-80 p-4">
             <h3 className="text-lg font-semibold mb-3">Thêm vé tháng</h3>
             <div className="space-y-3">
               <div>
@@ -225,7 +268,7 @@ export default function MonthlyPassPage() {
                 />
               </div>
               <div className="text-sm text-gray-600">
-                Giá: {formatPrice(500000 * months)}
+                Giá: {formatPrice(1000000 * months)}
               </div>
             </div>
             <div className="mt-4 flex justify-end gap-2">
@@ -284,14 +327,14 @@ export default function MonthlyPassPage() {
                     {pass.status === 'pending' && (
                       <>
                         <button
-                          onClick={() => handleApprove(pass._id)}
-                          className="px-3 py-1 mr-2 rounded bg-green-600 text-white text-s"
+                          onClick={() => handleApprove(pass)}
+                          className="px-3 py-1 mr-2 rounded bg-green-600 text-white text-s hover:bg-green-700"
                         >
                           Duyệt
                         </button>
                         <button
-                          onClick={() => handleReject(pass._id)}
-                          className="px-3 py-1 rounded bg-red-600 text-white text-s"
+                          onClick={() => handleReject(pass)}
+                          className="px-3 py-1 rounded bg-red-600 text-white text-s hover:bg-red-700"
                         >
                           Từ chối
                         </button>
@@ -347,7 +390,7 @@ export default function MonthlyPassPage() {
                 />
               </div>
               <div className="text-sm text-gray-600  rounded">
-                <div>Giá gia hạn: {formatPrice(500000 * extendMonths)}</div>
+                <div>Giá gia hạn: {formatPrice(1000000 * extendMonths)}</div>
                 <div className="mt-1">
                   Ngày kết thúc mới: {(() => {
                     const currentEnd = new Date(passToExtend.endDate)
@@ -377,7 +420,98 @@ export default function MonthlyPassPage() {
           </div>
         </div>
       )}
+
+      {/* Approve Confirmation Modal */}
+      {approveConfirmOpen && passToApprove && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-72 max-w-sm">
+            <h3 className="text-lg font-semibold mb-2">Bạn có chắc chắn muốn duyệt vé tháng này không?</h3>
+            <div className="rounded p-3 mb-4 text-sm">
+              <div className="grid gap-3">
+                <div>
+                  <span className="font-medium">Biển số:</span>{' '}
+                  <span>{passToApprove.vehicleId?.plateNumber || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="font-medium">Người đăng ký:</span>{' '}
+                  <span>{passToApprove.userId?.name || passToApprove.userId?.email || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="font-medium">Thời hạn:</span>{' '}
+                  <span>{formatDate(passToApprove.startDate)} - {formatDate(passToApprove.endDate)}</span>
+                </div>
+                <div>
+                  <span className="font-medium">Giá:</span>{' '}
+                  <span>{formatPrice(passToApprove.price)}</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={cancelApprove}
+                disabled={approving}
+                className="px-10 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={confirmApprove}
+                disabled={approving}
+                className="px-8 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+              >
+                {approving ? 'Đang duyệt...' : 'Duyệt'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Confirmation Modal */}
+      {rejectConfirmOpen && passToReject && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-80 max-w-sm">
+            <h3 className="text-lg font-semibold mb-2">Bạn có chắc chắn muốn từ chối vé tháng này không?</h3>
+            <div className="rounded p-3 mb-4 text-sm">
+              <div className="grid gap-3">
+                <div>
+                  <span className="font-medium">Biển số:</span>{' '}
+                  <span>{passToReject.vehicleId?.plateNumber || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="font-medium">Người đăng ký:</span>{' '}
+                  <span>{passToReject.userId?.name || passToReject.userId?.email || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="font-medium">Thời hạn:</span>{' '}
+                  <span>{formatDate(passToReject.startDate)} - {formatDate(passToReject.endDate)}</span>
+                </div>
+                <div>
+                  <span className="font-medium">Giá:</span>{' '}
+                  <span>{formatPrice(passToReject.price)}</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={cancelReject}
+                disabled={rejecting}
+                className="px-10 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={confirmReject}
+                disabled={rejecting}
+                className="px-8 py-2 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {rejecting ? 'Đang từ chối...' : 'Từ chối'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+
 

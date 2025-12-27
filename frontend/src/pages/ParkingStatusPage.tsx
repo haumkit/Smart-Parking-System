@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { apiGet } from '../services/api'
+import { connectSlotDetectionStream, type SlotDetectionResponse } from '../services/ai'
 
 interface Slot {
   _id: string
@@ -28,6 +29,40 @@ export default function ParkingStatusPage() {
     loadSlots()
   }, [loadSlots])
 
+  // Reuse slot SSE (như trang admin) để cập nhật realtime
+  useEffect(() => {
+    let es: EventSource | null = null
+    try {
+      es = connectSlotDetectionStream('parking', (data: SlotDetectionResponse) => {
+        if (Array.isArray(data?.slots)) {
+          const mapped: Slot[] = data.slots.map((s) => ({
+            _id: s.code,
+            slotNum: parseInt(String(s.code).replace(/^S/i, ''), 10) || 0,
+            code: s.code,
+            status: s.status === 'occupied' ? 'occupied' : 'available',
+          }))
+          setSlots(mapped)
+          setLoading(false)
+        }
+      })
+      es.onerror = () => {
+        console.warn('SSE slot bị lỗi, fallback polling giữ nguyên')
+      }
+    } catch (err) {
+      console.error('Không thể mở SSE slot:', err)
+    }
+    return () => {
+      if (es) es.close()
+    }
+  }, [])
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      loadSlots()
+    }, 15000) // auto-refresh every 15s
+    return () => clearInterval(id)
+  }, [loadSlots])
+
 
   const clusters = [
     { label: 'Cụm A', ids: [24, 25, 26, 27, 18] },
@@ -54,12 +89,6 @@ export default function ParkingStatusPage() {
           <div className="text-3xl font-bold text-red-700">{totalOccupied}</div>
           <div className="text-red-600">Có xe</div>
         </div>
-        <button
-          onClick={loadSlots}
-          className="bg-blue-600 flex font-bold text-xl text-white px-4 py-4 rounded hover:bg-blue-700 h-fit self-center"
-        >
-         Làm mới
-        </button>
       </div>
 
       {loading ? (

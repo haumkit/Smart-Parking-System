@@ -17,6 +17,10 @@ export default function MyVehiclesPage() {
   const [showForm, setShowForm] = useState(false)
   const [plateNumber, setPlateNumber] = useState('')
 
+  const isValidPlate = useCallback((plate: string) => {
+    return /^[1-9][0-9][A-HK-NP-TVXYZ][0-9]{4,5}$/.test(plate.toUpperCase())
+  }, [])
+  
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
     setToast({ message, type })
     setTimeout(() => setToast(null), 3000)
@@ -41,6 +45,10 @@ export default function MyVehiclesPage() {
   const handleSubmit = async () => {
     if (!plateNumber.trim()) {
       showToast('Vui lòng nhập biển số', 'error')
+      return
+    }
+    if (!isValidPlate(plateNumber)) {
+      showToast('Biển số không hợp lệ!', 'error')
       return
     }
     try {
@@ -117,7 +125,7 @@ export default function MyVehiclesPage() {
 
       {showForm && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-20">
-          <div className="bg-white rounded shadow-lg w-full max-w-md p-4">
+          <div className="bg-white rounded shadow-lg w-72 p-4">
             <h3 className="text-lg font-semibold mb-3">Đăng ký phương tiện</h3>
             <div className="space-y-3">
               <div>

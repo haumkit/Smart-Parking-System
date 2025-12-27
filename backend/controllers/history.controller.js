@@ -72,7 +72,6 @@ exports.list = async (req, res, next) => {
       .populate("slotId")
       .sort({ createdAt: -1 });
     
-    // Debug: Log số lượng records tìm được
     if (req.user.role !== 'admin') {
       console.log('Records found:', records.length);
       console.log('Record vehicleIds:', records.map(r => r.vehicleId?._id?.toString() || r.vehicleId?.toString() || 'N/A'));
@@ -128,7 +127,7 @@ exports.update = async (req, res, next) => {
 
     const record = await ParkingRecord.findById(id);
     if (!record || record.isDeleted) {
-      return res.status(404).json({ message: "Record not found" });
+      return res.status(404).json({ message: "Bản ghi không tồn tại" });
     }
 
     if (plateNumber) {
@@ -170,7 +169,7 @@ exports.remove = async (req, res, next) => {
     const { id } = req.params;
     const record = await ParkingRecord.findById(id);
     if (!record || record.isDeleted) {
-      return res.status(404).json({ message: "Bản ghi không tồn tại" });
+      return res.status(404).json({ message: "Không tìm thấy" });
     }
 
     // Chỉ cho phép xóa bản ghi đã hoàn thành (có exitTime)

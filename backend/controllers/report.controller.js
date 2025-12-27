@@ -79,7 +79,6 @@ exports.exportExcel = async (req, res, next) => {
     const start = from ? new Date(from) : new Date(0);
     const end = to ? new Date(to) : new Date();
     end.setHours(23, 59, 59, 999);
-    // Chỉ xuất các lượt đã hoàn thành (có exitTime)
     const records = await ParkingRecord.find({
       createdAt: { $gte: start, $lte: end },
       exitTime: { $ne: null },

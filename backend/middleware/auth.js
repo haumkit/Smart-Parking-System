@@ -1,7 +1,6 @@
 const jwt = require("jsonwebtoken");
 
 function authenticate(req, res, next) {
-  // Check token from Authorization header or query string (for img src, SSE, etc.)
   const authHeader = req.headers.authorization;
   const tokenFromQuery = req.query.token;
   

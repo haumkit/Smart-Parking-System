@@ -43,7 +43,7 @@ exports.createMy = async (req, res, next) => {
     const { plateNumber } = req.body;
     const normalizedPlate = plateNumber?.trim().toUpperCase();
     if (!normalizedPlate) {
-      return res.status(400).json({ message: "Plate number is required" });
+      return res.status(400).json({ message: "Biển số là bắt buộc" });
     }
 
     const existing = await Vehicle.findOne({ plateNumber: normalizedPlate });
@@ -80,7 +80,7 @@ exports.createMy = async (req, res, next) => {
 exports.get = async (req, res, next) => {
   try {
     const vehicle = await Vehicle.findById(req.params.id).populate("ownerId", "name email");
-    if (!vehicle) return res.status(404).json({ message: "Not found" });
+    if (!vehicle) return res.status(404).json({ message: "Không tìm thấy" });
     res.json(vehicle);
   } catch (err) {
     next(err);
@@ -109,11 +109,11 @@ exports.update = async (req, res, next) => {
 exports.remove = async (req, res, next) => {
   try {
     const vehicle = await Vehicle.findById(req.params.id);
-    if (!vehicle) return res.status(404).json({ message: "Not found" });
+    if (!vehicle) return res.status(404).json({ message: "Không tìm thấy" });
     
     // User chỉ được xóa xe của mình
     if (req.user.role !== 'admin' && vehicle.ownerId?.toString() !== req.user.id) {
-      return res.status(403).json({ message: "Forbidden" });
+      return res.status(403).json({ message: "Không có quyền" });
     }
     
     await Vehicle.findByIdAndDelete(req.params.id);
@@ -127,7 +127,7 @@ exports.remove = async (req, res, next) => {
 exports.approve = async (req, res, next) => {
   try {
     const vehicle = await Vehicle.findById(req.params.id);
-    if (!vehicle) return res.status(404).json({ message: "Not found" });
+    if (!vehicle) return res.status(404).json({ message: "Không tìm thấy" });
     
     vehicle.status = "approved";
     vehicle.approvedBy = req.user.id;
@@ -144,7 +144,7 @@ exports.approve = async (req, res, next) => {
 exports.reject = async (req, res, next) => {
   try {
     const vehicle = await Vehicle.findById(req.params.id);
-    if (!vehicle) return res.status(404).json({ message: "Not found" });
+    if (!vehicle) return res.status(404).json({ message: "Không tìm thấy" });
     
     vehicle.status = "rejected";
     vehicle.approvedBy = req.user.id;
@@ -157,7 +157,6 @@ exports.reject = async (req, res, next) => {
   }
 };
 
-// Admin: Lấy danh sách phương tiện chờ duyệt
 exports.listPending = async (req, res, next) => {
   try {
     const vehicles = await Vehicle.find({ status: "pending" })

@@ -31,20 +31,17 @@ def assign_slot_ids_by_clustering(boxes_xy):
 
     angle = CAMERA_SLOT_LAYOUT
 
-    # 1) Tạo mảng (cx, cy)
     XY = np.array([[b["cx"], b["cy"]] for b in boxes_xy])
 
-    # 2) KMeans chia thành 3 cụm
     kmeans = KMeans(n_clusters=3, random_state=0, n_init=10).fit(XY)
     labels = kmeans.labels_
     centroids = kmeans.cluster_centers_
 
-    # 3) Gom box theo label
     clusters: Dict[int, list] = {}
     for idx, lab in enumerate(labels):
         clusters.setdefault(int(lab), []).append(boxes_xy[idx])
 
-    # 4) Xác định cluster C (phải), A (trên trái), B (dưới trái)
+    #Xác định cluster C (phải), A (trên trái), B (dưới trái)
     centroid_info = [(i, centroids[i][0], centroids[i][1]) for i in range(centroids.shape[0])]
     # sort theo x giảm dần -> cụm ngoài cùng bên phải
     if angle == "phu_doc":
