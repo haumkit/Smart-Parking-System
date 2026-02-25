@@ -303,7 +303,7 @@ def find_and_sort_contours(mask, LpImg):
     
     median_height = np.median(heights) 
     median_area = np.median(areas)
-    # 3. LỌC DỰA TRÊN KÍCH THƯỚC VÀ TỶ LỆ
+
     FINAL_BOXES = []
 
     MIN_CHAR_HEIGHT_RATIO = 0.8   # Chiều cao tối thiểu của ký tự so với avg_height (giảm để bắt các ký tự hơi nhỏ)
@@ -316,24 +316,23 @@ def find_and_sort_contours(mask, LpImg):
     for x, y, w, h in filtered_boxes:
         aspect_ratio = w / h
         
-        # A. Lọc theo Chiều cao (đảm bảo nó là ký tự)
+        # A. Lọc theo Chiều cao 
         if not (median_height * MIN_CHAR_HEIGHT_RATIO <= h <= median_height * MAX_CHAR_HEIGHT_RATIO):
             continue
             
-        # B. Lọc theo Tỷ lệ Khung hình (đảm bảo không phải nhiễu rộng/mảnh)
+        # B. Lọc theo Tỷ lệ Khung hình 
         if not (MIN_ASPECT_RATIO <= aspect_ratio <= MAX_ASPECT_RATIO):
             continue
             
-        # C. Lọc theo Chiều rộng tối đa (loại bỏ các vùng dính lớn bất thường)
-        # Nếu một BB có chiều rộng quá lớn so với chiều cao (ký tự)
+        # C. Lọc theo Chiều rộng tối đa 
         if w > median_height * 1.1: 
              continue
-        # D. Lọc theo Vị trí (Biên trái/phải 5%)
+        # D. Lọc theo Vị trí 
         center_x = x + w / 2
         if center_x < width * 0.05 or center_x > width * 0.95: 
             continue
 
-        # E. [MỚI] Lọc theo Diện tích (Loại bỏ khối dính to hoặc chấm nhỏ)
+        # E. [MỚI] Lọc theo Diện tích
         area = w * h
         if area < median_area * MIN_AREA_RATIO or area > median_area * MAX_AREA_RATIO:
             continue

@@ -94,9 +94,8 @@ export default function MyMonthlyPassPage() {
     <div className="space-y-4">
       {toast && (
         <div
-          className={`fixed top-4 right-4 px-4 py-2 rounded shadow-lg z-50 ${
-            toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-          }`}
+          className={`fixed top-4 right-4 px-4 py-2 rounded shadow-lg z-50 ${toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+            }`}
         >
           {toast.message}
         </div>
@@ -142,7 +141,7 @@ export default function MyMonthlyPassPage() {
                   className="w-full border rounded px-3 py-2 text-sm"
                 />
               </div>
-              <div className="text-sm text-gray-600">Giá: {formatPrice(500000 * months)}</div>
+              <div className="text-sm text-gray-600">Giá: {formatPrice(1000000 * months)}</div>
             </div>
             <div className="mt-4 flex justify-end gap-2">
               <button

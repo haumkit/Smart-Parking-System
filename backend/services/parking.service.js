@@ -16,7 +16,7 @@ async function assertFreeSlotAvailable() {
 
   const [availableSlots, pendingEntries] = await Promise.all([
     ParkingSlot.countDocuments({ status: "available" }),
-    ParkingRecord.countDocuments({ exitTime: null, slotId: null, entryTime: { $gte: pendingSince } }),
+    ParkingRecord.countDocuments({ exitTime: null, entryTime: { $gte: pendingSince } }),
   ]);
 
   if (availableSlots <= 0) {

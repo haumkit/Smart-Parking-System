@@ -101,8 +101,7 @@ class MotionDetector:
         
         print("Running OCR after motion detection...")
         
-        frame_to_process = cv2.resize(frame, (960, 540))
-        detection_result = self.plate_detector.detect_from_array(frame_to_process)
+        detection_result = self.plate_detector.detect_from_array(frame)
         
         self.motion_detected = False
         

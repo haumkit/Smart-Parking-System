@@ -35,7 +35,7 @@ export default function ReportsPage() {
   useEffect(() => {
     const end = new Date()
     const start = new Date()
-    start.setDate(end.getDate() - 6)
+    start.setDate(end.getDate() - 29) // 1 tháng (29 ngày trước + hôm nay = 30 ngày)
 
     const fmt = (d: Date) => d.toISOString().slice(0, 10)
     const fromStr = fmt(start)

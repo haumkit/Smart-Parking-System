@@ -42,7 +42,7 @@ export default function HistoryPage() {
   useEffect(() => {
     const end = new Date()
     const start = new Date()
-    start.setDate(end.getDate() - 6)
+    start.setDate(end.getDate() - 29) 
     const fmt = (d: Date) => d.toISOString().slice(0, 10)
     const fromStr = fmt(start)
     const toStr = fmt(end)
@@ -72,7 +72,7 @@ export default function HistoryPage() {
     setSearchPlate('')
     const end = new Date()
     const start = new Date()
-    start.setDate(end.getDate() - 6)
+    start.setDate(end.getDate() - 29) 
     const fmt = (d: Date) => d.toISOString().slice(0, 10)
     const fromStr = fmt(start)
     const toStr = fmt(end)

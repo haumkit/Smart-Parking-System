@@ -185,8 +185,8 @@ class MultiCameraManager:
     def _init_from_env(self):
         entry_source = parse_source(os.getenv("CAM_ENTRY_SOURCE", "2"))
         exit_source = parse_source(os.getenv("CAM_EXIT_SOURCE", "0"))
-        lot_source = parse_source(os.getenv("CAM_PARKING_SOURCE", "http:192.168.100.161:4747/video"))
-        """  http:192.168.100.161:4747/video   http://huv12PM:123456@192.168.100.161:8081/video"""
+        lot_source = parse_source(os.getenv("CAM_PARKING_SOURCE", "http:172.20.10.2:4747/video"))
+        """  http:192.168.100.161:4747/video   http:172.20.10.2:4747/video"""
         entry_width = int(os.getenv("CAM_ENTRY_WIDTH", "640"))
         entry_height = int(os.getenv("CAM_ENTRY_HEIGHT", "480"))
         exit_width = int(os.getenv("CAM_EXIT_WIDTH", "640"))
